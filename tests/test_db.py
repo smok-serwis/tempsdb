@@ -12,3 +12,5 @@ class TestDB(unittest.TestCase):
         self.assertEqual(chunk.get_piece_at(0), (0, b'ala '))
         self.assertEqual(chunk.get_piece_at(1), (1, b'ma  '))
         self.assertEqual(chunk.get_piece_at(2), (4, b'kota'))
+        self.assertEqual(len(chunk), 3)
+        self.assertEqual(list(iter(chunk)), data)

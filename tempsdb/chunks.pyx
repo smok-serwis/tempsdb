@@ -41,7 +41,7 @@ cdef class Chunk:
         self.pointer = 20
         self.entries = (file_size-self.pointer) // self.block_size
 
-    def __iter__(self):
+    def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
         cdef unsigned long i = 0
         for i in range(self.entries):
             yield self.get_piece_at(i)
