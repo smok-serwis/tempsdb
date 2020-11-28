@@ -10,7 +10,9 @@ STRUCT_Q = struct.Struct('>Q')
 
 cdef class Chunk:
     """
-    Represents a single chunk of time series
+    Represents a single chunk of time series.
+
+    This also implements an iterator interface. This will iterate with tp.Tuple[int, bytes].
 
     :param path: path to the chunk file
     :type path: str
@@ -23,19 +25,29 @@ cdef class Chunk:
     """
     def __init__(self, path: str):
         self.closed = False
+        cdef unsigned long long file_size = os.path.getsize(path)
         self.path = path
         cdef bytes b
-        self.file = open(self.path, 'rb')
+        print('Before open')
+        self.file = open(self.path, 'rb+')
         try:
-            self.mmap = mmap.mmap(self.file.fileno(), 0)
-        except OSError:
-            raise Corruption('Empty chunk file!')
+            self.mmap = mmap.mmap(self.file.fileno(), file_size, access=mmap.ACCESS_READ)
+        except OSError as e:
+            raise Corruption(f'Empty chunk file!')
         try:
-            self.min_ts, self.max_ts, self.block_size = STRUCT_QQL.unpack(self.file.read(16))
+            self.min_ts, self.max_ts, self.block_size = STRUCT_QQL.unpack(self.mmap[:20])
         except struct.error:
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
-        self.pointer = 8
-        self.entries = (os.path.getsize(self.path)-20) / self.block_size
+        self.pointer = 20
+        self.entries = (file_size-self.pointer) // self.block_size
+
+    def __iter__(self):
+        cdef unsigned long i = 0
+        for i in range(self.entries):
+            yield self.get_piece_at(i)
+
+    def __len__(self):
+        return self.entries
 
     cpdef void close(self):
         """
@@ -59,9 +71,8 @@ cdef class Chunk:
         if index >= self.entries:
             raise IndexError('Index too large')
         cdef:
-            unsigned long starting_index = 20 + index * self.block_size
-            unsigned long stopping_index = starting_index + self.block_size
-            bytes bytes_at = self.mmap[starting_index:stopping_index]
+            unsigned long starting_index = 20 + index * (self.block_size+8)
+            unsigned long stopping_index = starting_index + self.block_size+8
             unsigned long long ts = STRUCT_Q.unpack(self.mmap[starting_index:starting_index+8])[0]
         return ts, self.mmap[starting_index+8:stopping_index]
 
@@ -107,10 +118,10 @@ cpdef Chunk create_chunk(str path, list data):
             file.write(b)
             last_ts = ts
             first_element = False
-            file.close()
     except ValueError:
         file.close()
         os.unlink(path)
         raise
+    file.close()
     return Chunk(path)
 

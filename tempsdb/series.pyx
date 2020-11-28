@@ -1,10 +1,9 @@
 import threading
 import time
-
 import ujson
 from satella.files import read_in_file
 
-from .chunks cimport Chunk, create_chunk
+from .chunks cimport create_chunk
 from .database cimport Database
 from .exceptions import DoesNotExist, Corruption
 import os
