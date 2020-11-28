@@ -10,7 +10,6 @@ Welcome to tempsdb's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   time-series
    usage
    exceptions
 

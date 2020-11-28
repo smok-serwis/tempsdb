@@ -9,3 +9,6 @@ cdef class Database:
 
     cpdef void close(self)
     cpdef TimeSeries get_series(self, str name)
+
+cpdef Database create_database(str path)
+
