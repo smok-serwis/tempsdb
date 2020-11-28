@@ -14,6 +14,7 @@ cdef class Chunk:
         readonly bint writable
         object write_lock
 
+    cpdef object iterate_range(self, unsigned long starting_entry, unsigned long stopping_entry)
     cpdef void close(self)
     cpdef tuple get_piece_at(self, unsigned int index)
     cpdef int put(self, unsigned long long timestamp, bytes data) except -1

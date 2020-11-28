@@ -85,6 +85,24 @@ cdef class Chunk:
             self.max_ts = timestamp
         return 0
 
+    cpdef object iterate_range(self, unsigned long starting_entry, unsigned long stopping_entry):
+        """
+        Return a partial iterator starting at starting_entry and ending at stopping_entry (exclusive)
+        
+        :param starting_entry: number of starting entry
+        :type starting_entry: int
+        :param stopping_entry: number of stopping entry
+        :type stopping_entry:
+        :return: an iterator
+        :rtype: tp.Iterator[tp.Tuple[int, bytes]]
+        """
+        return self._iterate(starting_entry, stopping_entry)
+
+    def _iterate(self, starting_entry: int, stopping_entry: int):
+        cdef int i
+        for i in range(starting_entry, stopping_entry):
+            yield self.get_piece_at(i)
+
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
         cdef unsigned long i = 0
         for i in range(self.entries):
