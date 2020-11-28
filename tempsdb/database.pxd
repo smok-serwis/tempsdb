@@ -1,3 +1,3 @@
 cdef class Database:
     cdef:
-        int test
+        str path

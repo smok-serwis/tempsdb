@@ -1,4 +1,7 @@
 cdef class Database:
-    def __init__(self, test: int):
-        self.test = test
+    """
+    A basic TempsDB object.
+    """
+    def __init__(self, path: str):
+        self.path = path
 
