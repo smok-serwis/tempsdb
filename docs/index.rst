@@ -16,6 +16,9 @@ Welcome to tempsdb's documentation!
 It tries to use mmap where possible, and in general be as zero-copy as possible (ie. the
 only time data is unserialized is when a particular entry is read).
 
+Stored time series with a 8-bit timestamp and a fixed length of data.
+So no variable encoding for you!
+
 
 Indices and tables
 ==================

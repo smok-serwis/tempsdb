@@ -1,6 +1,6 @@
 FROM python:3.8
 
-RUN pip install satella snakehouse nose2 wheel
+RUN pip install satella snakehouse nose2 wheel ujson
 
 ADD . /app
 WORKDIR /app

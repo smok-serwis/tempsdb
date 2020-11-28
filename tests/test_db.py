@@ -1,9 +1,10 @@
 import os
 import unittest
 from tempsdb.chunks import create_chunk
-
+from tempsdb.series import create_series
 
 class TestDB(unittest.TestCase):
+
     def test_chunk(self):
         data = [(0, b'ala '), (1, b'ma  '), (4, b'kota')]
         chunk = create_chunk('chunk.db', data)

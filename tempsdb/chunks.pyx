@@ -3,7 +3,7 @@ import threading
 import typing as tp
 import struct
 import mmap
-from .exceptions import Corruption, InvalidState
+from .exceptions import Corruption, InvalidState, AlreadyExists
 
 STRUCT_L = struct.Struct('>L')
 STRUCT_Q = struct.Struct('>Q')
@@ -85,7 +85,7 @@ cdef class Chunk:
             yield self.get_piece_at(i)
 
     def __len__(self):
-        return self.entries
+        return self.length()
 
     cpdef void close(self):
         """
@@ -126,8 +126,11 @@ cpdef Chunk create_chunk(str path, list data):
         Must be nonempty and sorted by timestamp.
     :type data: tp.List[tp.Tuple[int, bytes]]
     :raises ValueError: entries in data were not of equal size, or data was empty or data
-        was not sorted by timestamp or same timestamp appeared twice 
+        was not sorted by timestamp or same timestamp appeared twice
+    :raises AlreadyExists: chunk already exists 
     """
+    if os.path.exists(path):
+        raise AlreadyExists('chunk already exists!')
     if not data:
         raise ValueError('Data is empty')
     file = open(path, 'wb')

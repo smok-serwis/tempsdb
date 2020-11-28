@@ -7,4 +7,7 @@
 [![Maintainability](https://api.codeclimate.com/v1/badges/657b03d115f6e001633c/maintainability)](https://codeclimate.com/github/smok-serwis/tempsdb/maintainability)
 [![Build status](https://circleci.com/gh/smok-serwis/tempsdb.svg?style=shield)](https://app.circleci.com/pipelines/github/smok-serwis/tempsdb)
 
-Embedded Cython library for time series that you need to upload somewhere
+Embedded Cython library for time series that you need to upload somewhere.
+
+Stored time series with a 8-bit timestamp and a fixed length of data.
+So no variable encoding for you!

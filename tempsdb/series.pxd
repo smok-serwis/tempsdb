@@ -10,8 +10,6 @@ cdef class TimeSeries:
         Database parent
         str name
         unsigned int max_entries_per_chunk
-        double last_synced
-        readonly double interval_between_synces
         readonly unsigned long long last_entry_synced
         readonly unsigned int block_size
         readonly unsigned long long last_entry_ts
@@ -20,12 +18,13 @@ cdef class TimeSeries:
         list data_in_memory
         Chunk last_chunk
 
+    cpdef int delete(self) except -1
     cdef dict _get_metadata(self)
     cpdef void close(self)
     cpdef Chunk open_chunk(self, unsigned long long name)
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
-    cpdef int try_sync(self) except -1
-    cpdef int _sync_metadata(self) except -1
     cpdef int put(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
 
+cpdef TimeSeries create_series(Database parent, str name, unsigned int block_size,
+                               int max_entries_per_chunk)

@@ -12,3 +12,5 @@ The exceptions that inherit from it are:
 .. autoclass:: tempsdb.exceptions.Corruption
 
 .. autoclass:: tempsdb.exceptions.InvalidState
+
+.. autoclass:: tempsdb.exceptions.AlreadyExists

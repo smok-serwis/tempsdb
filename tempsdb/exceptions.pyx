@@ -9,5 +9,10 @@ class DoesNotExist(TempsDBError):
 class Corruption(TempsDBError):
     """Corruption was detected in the dataset"""
 
+
 class InvalidState(TempsDBError):
     """An attempt was made to write to a resource that's closed"""
+
+
+class AlreadyExists(TempsDBError):
+    """Provided object already exists"""
