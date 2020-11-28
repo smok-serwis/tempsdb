@@ -12,8 +12,9 @@ Welcome to tempsdb's documentation!
 
    usage
    exceptions
+   chunks
 
-It tries to use mmap for reads where possible, and in general be as zero-copy as possible (ie. the
+It tries to use mmap for reads and writes, and in general is as zero-copy as possible (ie. the
 only time data is unserialized is when a particular entry is read).
 
 Stored time series with a 8-bit timestamp and a fixed length of data.

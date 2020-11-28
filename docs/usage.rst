@@ -14,4 +14,3 @@ Then you can create and retrieve particular series:
 
 .. autoclass:: tempsdb.series.TimeSeries
     :members:
-

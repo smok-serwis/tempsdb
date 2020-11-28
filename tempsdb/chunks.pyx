@@ -56,6 +56,13 @@ cdef class Chunk:
         self.max_ts, = STRUCT_Q.unpack(self.mmap[-TIMESTAMP_SIZE-self.block_size:-self.block_size])
         self.min_ts, = STRUCT_Q.unpack(self.mmap[HEADER_SIZE:HEADER_SIZE+TIMESTAMP_SIZE])
 
+    cpdef int sync(self) except -1:
+        """
+        Synchronize the mmap
+        """
+        self.mmap.flush()
+        return 0
+
     cpdef int put(self, unsigned long long timestamp, bytes data) except -1:
         """
         Append a record to this chunk
@@ -73,14 +80,11 @@ cdef class Chunk:
             raise ValueError('data not equal in length to block size!')
         if timestamp <= self.max_ts:
             raise ValueError('invalid timestamp')
-
-        cdef bytearray data_to_write = bytearray(TIMESTAMP_SIZE+self.block_size)
-        data_to_write[0:TIMESTAMP_SIZE] = STRUCT_Q.pack(timestamp)
-        data_to_write[TIMESTAMP_SIZE:] = data
+        cdef unsigned long long pointer_at_end = (self.entries+1)*(TIMESTAMP_SIZE+self.block_size) + HEADER_SIZE
         with self.write_lock:
-            self.file.seek(0, 2)
-            self.file.write(data_to_write)
-            self.mmap.resize((self.entries+1)*(8+self.block_size)+HEADER_SIZE)
+            self.mmap.resize(pointer_at_end)
+            self.mmap[pointer_at_end-self.block_size-TIMESTAMP_SIZE:pointer_at_end-self.block_size] = STRUCT_Q.pack(timestamp)
+            self.mmap[pointer_at_end-self.block_size:pointer_at_end] = data
             self.entries += 1
             self.max_ts = timestamp
         return 0
@@ -104,7 +108,7 @@ cdef class Chunk:
             yield self.get_piece_at(i)
 
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
-        cdef unsigned long i = 0
+        cdef int i
         for i in range(self.entries):
             yield self.get_piece_at(i)
 
