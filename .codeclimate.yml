@@ -1,0 +1,29 @@
+engines:
+  duplication:
+    enabled: true
+    config:
+      languages:
+        python:
+
+  fixme:
+    enabled: true
+  markdownlint:
+    enabled: true
+  pep8:
+    enabled: true
+exclude_paths:
+  - tests/**
+  - docs/**
+ratings:
+  paths:
+    - smokclient/**
+checks:
+  argument-count:
+    config:
+      threshold: 15
+  method-complexity:
+    config:
+      threshold: 50
+  method-count:
+    config:
+      threshold: 85
