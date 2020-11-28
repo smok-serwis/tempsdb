@@ -11,6 +11,7 @@ Welcome to tempsdb's documentation!
    :caption: Contents:
 
    time-series
+   usage
    exceptions
 
 It tries to use mmap for reads where possible, and in general be as zero-copy as possible (ie. the
