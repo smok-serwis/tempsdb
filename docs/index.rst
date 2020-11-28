@@ -13,7 +13,7 @@ Welcome to tempsdb's documentation!
    time-series
    exceptions
 
-It tries to use mmap where possible, and in general be as zero-copy as possible (ie. the
+It tries to use mmap for reads where possible, and in general be as zero-copy as possible (ie. the
 only time data is unserialized is when a particular entry is read).
 
 Stored time series with a 8-bit timestamp and a fixed length of data.

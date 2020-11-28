@@ -1,4 +1,3 @@
-from .database cimport Database
 from .chunks cimport Chunk
 
 
@@ -7,8 +6,6 @@ cdef class TimeSeries:
         bint closed
         object lock, fopen_lock
         str path
-        Database parent
-        str name
         unsigned int max_entries_per_chunk
         readonly unsigned long long last_entry_synced
         readonly unsigned int block_size
@@ -26,5 +23,4 @@ cdef class TimeSeries:
     cpdef int put(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
 
-cpdef TimeSeries create_series(Database parent, str name, unsigned int block_size,
-                               int max_entries_per_chunk)
+cpdef TimeSeries create_series(str path, unsigned int block_size, int max_entries_per_chunk)

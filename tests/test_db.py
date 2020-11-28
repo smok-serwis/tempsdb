@@ -3,11 +3,15 @@ import unittest
 from tempsdb.chunks import create_chunk
 from tempsdb.series import create_series
 
+
 class TestDB(unittest.TestCase):
+
+    def test_create_series(self):
+        series = create_series('test', 8, 10)
 
     def test_chunk(self):
         data = [(0, b'ala '), (1, b'ma  '), (4, b'kota')]
-        chunk = create_chunk('chunk.db', data)
+        chunk = create_chunk(None, 'chunk.db', data)
         self.assertEqual(chunk.min_ts, 0)
         self.assertEqual(chunk.max_ts, 4)
         self.assertEqual(chunk.block_size, 4)

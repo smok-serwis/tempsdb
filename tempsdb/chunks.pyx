@@ -4,6 +4,7 @@ import typing as tp
 import struct
 import mmap
 from .exceptions import Corruption, InvalidState, AlreadyExists
+from .series cimport TimeSeries
 
 STRUCT_L = struct.Struct('>L')
 STRUCT_Q = struct.Struct('>Q')
@@ -25,11 +26,13 @@ cdef class Chunk:
     :ivar max_ts: timestamp of the last entry stored (int)
     :ivar block_size: size of the data entries (int)
     :ivar entries: amount of entries in this chunk (int)
+    :ivar writable: is this chunk writable (bool)
     """
-    def __init__(self, path: str, writable: bool = True):
+    def __init__(self, parent: tp.Optional[TimeSeries], path: str, writable: bool = True):
         cdef:
             unsigned long long file_size = os.path.getsize(path)
             bytes b
+        self.parent = parent
         self.writable = writable
         self.write_lock = threading.Lock()
         self.closed = False
@@ -51,6 +54,7 @@ cdef class Chunk:
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
         self.entries = (file_size-HEADER_SIZE) // (self.block_size+TIMESTAMP_SIZE)
         self.max_ts, = STRUCT_Q.unpack(self.mmap[-TIMESTAMP_SIZE-self.block_size:-self.block_size])
+        self.min_ts, = STRUCT_Q.unpack(self.mmap[HEADER_SIZE:HEADER_SIZE+TIMESTAMP_SIZE])
 
     cpdef int put(self, unsigned long long timestamp, bytes data) except -1:
         """
@@ -69,14 +73,16 @@ cdef class Chunk:
             raise ValueError('data not equal in length to block size!')
         if timestamp <= self.max_ts:
             raise ValueError('invalid timestamp')
+
         cdef bytearray data_to_write = bytearray(TIMESTAMP_SIZE+self.block_size)
         data_to_write[0:TIMESTAMP_SIZE] = STRUCT_Q.pack(timestamp)
         data_to_write[TIMESTAMP_SIZE:] = data
         with self.write_lock:
             self.file.seek(0, 2)
             self.file.write(data_to_write)
+            self.mmap.resize((self.entries+1)*(8+self.block_size)+HEADER_SIZE)
             self.entries += 1
-            self.mmap.resize(self.entries*(8+self.block_size)+HEADER_SIZE)
+            self.max_ts = timestamp
         return 0
 
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
@@ -93,6 +99,10 @@ cdef class Chunk:
         """
         if self.closed:
             return
+        if self.parent:
+            with self.parent.fopen_lock:
+                del self.parent.open_chunks[self.min_ts]
+        self.parent = None
         self.mmap.close()
         self.file.close()
 
@@ -116,10 +126,12 @@ cdef class Chunk:
         return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]
 
 
-cpdef Chunk create_chunk(str path, list data):
+cpdef Chunk create_chunk(TimeSeries parent, str path, list data):
     """
     Creates a new chunk on disk
     
+    :param parent: parent time series
+    :type parent: TimeSeries
     :param path: path to the new chunk file
     :type path: str
     :param data: data to write, list of tuple (timestamp, entry to write).
@@ -158,5 +170,5 @@ cpdef Chunk create_chunk(str path, list data):
         os.unlink(path)
         raise
     file.close()
-    return Chunk(path)
+    return Chunk(parent, path)
 

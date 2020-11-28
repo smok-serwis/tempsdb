@@ -15,27 +15,25 @@ cdef class TimeSeries:
     """
     This is thread-safe
 
-    :ivar last_entry_ts: timestamp of the last entry added (int)
+    :ivar last_entry_ts: timestamp of the last entry added or 0 if no entries yet (int)
     :ivar last_entry_synced: timestamp of the last synchronized entry (int)
     :ivar block_size: size of the writable block of data
     """
-    def __init__(self, parent: Database, name: str):
+    def __init__(self, path: str):
         self.lock = threading.Lock()
         self.fopen_lock = threading.Lock()
-        self.parent = parent
-        self.name = name
         self.closed = False
 
-        if not os.path.isdir(self.parent.path, name):
-            raise DoesNotExist('Chosen time series does not exist')
+        self.path = path
 
-        self.path = os.path.join(self.parent.path, self.name)
+        if not os.path.isdir(self.path):
+            raise DoesNotExist('Chosen time series does not exist')
 
         cdef:
             str metadata_s = read_in_file(os.path.join(self.path, METADATA_FILE_NAME),
                                          'utf-8', 'invalid json')
             dict metadata
-            list files = os.path.listdir(self.path)
+            list files = os.listdir(self.path)
             set files_s = set(files)
             str chunk
         try:
@@ -44,13 +42,12 @@ cdef class TimeSeries:
             raise Corruption('Corrupted series')
 
         self.open_chunks = {}       # tp.Dict[int, Chunk]
-        self.last_synced = time.monotonic()
 
         files_s.remove('metadata.txt')
         if not files_s:
             self.last_chunk = None
-            self.open_chunks = {}
             self.chunks = []
+            self.last_entry_ts = 0
         else:
             self.chunks = []        # type: tp.List[int] # sorted by ASC
             for chunk in files:
@@ -61,14 +58,15 @@ cdef class TimeSeries:
 
             self.chunks.sort()
             try:
-                self.last_entry_ts = metadata['last_entry_ts']
                 self.block_size = metadata['block_size']
                 self.max_entries_per_chunk = metadata['max_entries_per_chunk']
                 self.last_entry_synced = metadata['last_entry_synced']
             except KeyError:
                 raise Corruption('Could not read metadata item')
 
-            self.last_chunk = Chunk(os.path.join(self.path, str(max(self.chunks))))
+            self.last_chunk = Chunk(self, os.path.join(self.path, str(max(self.chunks))))
+            self.open_chunks[self.last_chunk.min_ts] = self.last_chunk
+            self.last_entry_ts = self.last_chunk.max_ts
 
     cpdef Chunk open_chunk(self, unsigned long long name):
         """
@@ -87,7 +85,7 @@ cdef class TimeSeries:
             raise DoesNotExist('Invalid chunk!')
         with self.fopen_lock:
             if name not in self.open_chunks:
-                self.open_chunks[name] = Chunk(os.path.join(self.path, str(name)))
+                self.open_chunks[name] = Chunk(self, os.path.join(self.path, str(name)))
         return self.open_chunks[name]
 
     cpdef void close(self):
@@ -131,7 +129,6 @@ cdef class TimeSeries:
 
     cdef dict _get_metadata(self):
         return {
-                'last_entry_ts': self.last_entry_ts,
                 'block_size': self.block_size,
                 'max_entries_per_chunk': self.max_entries_per_chunk,
                 'last_entry_synced': self.last_entry_synced
@@ -157,11 +154,11 @@ cdef class TimeSeries:
 
         with self.lock:
             if self.last_chunk is None:
-                self.last_chunk = create_chunk(os.path.join(self.path, str(timestamp)),
+                self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                [(timestamp, data)])
                 self.open_chunks[timestamp] = self.last_chunk
             elif self.last_chunk.length() >= self.max_entries_per_chunk:
-                self.last_chunk = create_chunk(os.path.join(self.path, str(timestamp)),
+                self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                [(timestamp, data)])
                 self.chunks.append(timestamp)
             else:
@@ -179,19 +176,17 @@ cdef class TimeSeries:
         shutil.rmtree(self.path)
 
 
-cpdef TimeSeries create_series(Database parent, str name, unsigned int block_size,
+cpdef TimeSeries create_series(str path, unsigned int block_size,
                                int max_entries_per_chunk):
-    cdef path = os.path.join(parent.path, name)
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
 
     os.mkdir(path)
     with open(os.path.join(path, METADATA_FILE_NAME), 'w') as f_out:
         ujson.dump({
-            'last_entry_ts': 0,
             'block_size': block_size,
             'max_entries_per_chunk': max_entries_per_chunk,
             'last_entry_synced': 0
             }, f_out
         )
-    return TimeSeries(parent, name)
+    return TimeSeries(path)

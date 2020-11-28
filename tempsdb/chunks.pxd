@@ -1,5 +1,8 @@
+from .series cimport TimeSeries
+
 cdef class Chunk:
     cdef:
+        TimeSeries parent
         readonly str path
         readonly unsigned long long min_ts
         readonly unsigned long long max_ts
@@ -7,7 +10,8 @@ cdef class Chunk:
         readonly unsigned long entries
         object file
         object mmap
-        bint closed, writable
+        bint closed
+        readonly bint writable
         object write_lock
 
     cpdef void close(self)
@@ -16,4 +20,4 @@ cdef class Chunk:
     cdef inline int length(self):
         return self.entries
 
-cpdef Chunk create_chunk(str path, list data)
+cpdef Chunk create_chunk(TimeSeries parent, str path, list data)
