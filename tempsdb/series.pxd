@@ -1,8 +1,11 @@
 from .database cimport Database
+from .chunks cimport Chunk
+
 
 cdef class TimeSeries:
     cdef:
-        object lock
+        bint closed
+        object lock, fopen_lock
         str path
         Database parent
         str name
@@ -15,8 +18,11 @@ cdef class TimeSeries:
         list chunks
         dict open_chunks
         list data_in_memory
+        Chunk last_chunk
 
     cdef dict _get_metadata(self)
+    cpdef void close(self)
+    cpdef Chunk open_chunk(self, unsigned long long name)
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int try_sync(self) except -1
     cpdef int _sync_metadata(self) except -1

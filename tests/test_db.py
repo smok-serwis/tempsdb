@@ -1,3 +1,4 @@
+import os
 import unittest
 from tempsdb.chunks import create_chunk
 
@@ -14,3 +15,6 @@ class TestDB(unittest.TestCase):
         self.assertEqual(chunk.get_piece_at(2), (4, b'kota'))
         self.assertEqual(len(chunk), 3)
         self.assertEqual(list(iter(chunk)), data)
+        chunk.put(5, b'test')
+        chunk.close()
+        self.assertEqual(os.path.getsize('chunk.db'), 4+4*12)

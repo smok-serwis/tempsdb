@@ -1,12 +1,13 @@
 import os
+import threading
 import typing as tp
 import struct
 import mmap
-from .exceptions import Corruption
+from .exceptions import Corruption, InvalidState
 
-STRUCT_QQL = struct.Struct('>QQL')
+STRUCT_L = struct.Struct('>L')
 STRUCT_Q = struct.Struct('>Q')
-DEF HEADER_SIZE = 20
+DEF HEADER_SIZE = 4
 DEF TIMESTAMP_SIZE = 8
 
 
@@ -14,7 +15,7 @@ cdef class Chunk:
     """
     Represents a single chunk of time series.
 
-    This also implements an iterator interface. This will iterate with tp.Tuple[int, bytes].
+    This also implements an iterator interface, and will iterate with tp.Tuple[int, bytes].
 
     :param path: path to the chunk file
     :type path: str
@@ -25,26 +26,58 @@ cdef class Chunk:
     :ivar block_size: size of the data entries (int)
     :ivar entries: amount of entries in this chunk (int)
     """
-    def __init__(self, path: str):
+    def __init__(self, path: str, writable: bool = True):
         cdef:
             unsigned long long file_size = os.path.getsize(path)
             bytes b
+        self.writable = writable
+        self.write_lock = threading.Lock()
         self.closed = False
         self.path = path
-        self.file = open(self.path, 'rb')
+        self.file = open(self.path, 'rb+' if self.writable else 'rb')
         try:
-            self.mmap = mmap.mmap(self.file.fileno(), file_size, access=mmap.ACCESS_READ)
+            if self.writable:
+                self.mmap = mmap.mmap(self.file.fileno(), file_size)
+            else:
+                self.mmap = mmap.mmap(self.file.fileno(), file_size, access=mmap.ACCESS_READ)
         except OSError as e:
             self.file.close()
             self.closed = True
             raise Corruption(f'Empty chunk file!')
         try:
-            self.min_ts, self.max_ts, self.block_size = STRUCT_QQL.unpack(self.mmap[:HEADER_SIZE])
+            self.block_size, = STRUCT_L.unpack(self.mmap[:HEADER_SIZE])
         except struct.error:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
-        print(f'Readed in {file_size} bytes bs={self.block_size}')
         self.entries = (file_size-HEADER_SIZE) // (self.block_size+TIMESTAMP_SIZE)
+        self.max_ts, = STRUCT_Q.unpack(self.mmap[-TIMESTAMP_SIZE-self.block_size:-self.block_size])
+
+    cpdef int put(self, unsigned long long timestamp, bytes data) except -1:
+        """
+        Append a record to this chunk
+        
+        :param timestamp: timestamp of the entry
+        :type timestamp: int
+        :param data: data to write
+        :type data: bytes
+        :raises InvalidState: chunk is closed or not writable
+        :raises ValueError: invalid timestamp or data
+        """
+        if self.closed or not self.writable:
+            raise InvalidState('chunk is closed')
+        if len(data) != self.block_size:
+            raise ValueError('data not equal in length to block size!')
+        if timestamp <= self.max_ts:
+            raise ValueError('invalid timestamp')
+        cdef bytearray data_to_write = bytearray(TIMESTAMP_SIZE+self.block_size)
+        data_to_write[0:TIMESTAMP_SIZE] = STRUCT_Q.pack(timestamp)
+        data_to_write[TIMESTAMP_SIZE:] = data
+        with self.write_lock:
+            self.file.seek(0, 2)
+            self.file.write(data_to_write)
+            self.entries += 1
+            self.mmap.resize(self.entries*(8+self.block_size)+HEADER_SIZE)
+        return 0
 
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
         cdef unsigned long i = 0
@@ -99,21 +132,13 @@ cpdef Chunk create_chunk(str path, list data):
         raise ValueError('Data is empty')
     file = open(path, 'wb')
     cdef:
-        unsigned long long min_ts = 0xFFFFFFFFFFFFFFFF
-        unsigned long long max_ts = 0
         bytes b
         unsigned long long ts
         unsigned long block_size = len(data[0][1])
         unsigned long long last_ts = 0
         bint first_element = True
 
-    for ts, b in data:
-        if ts < min_ts:
-            min_ts = ts
-        elif ts > max_ts:
-            max_ts = ts
-
-    file.write(STRUCT_QQL.pack(min_ts, max_ts, block_size))
+    file.write(STRUCT_L.pack(block_size))
     try:
         for ts, b in data:
             if not first_element:

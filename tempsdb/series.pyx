@@ -3,9 +3,9 @@ import time
 import ujson
 from satella.files import read_in_file
 
-from .chunks cimport create_chunk
+from .chunks cimport create_chunk, Chunk
 from .database cimport Database
-from .exceptions import DoesNotExist, Corruption
+from .exceptions import DoesNotExist, Corruption, InvalidState
 import os
 
 DEF METADATA_FILE_NAME = 'metadata.txt'
@@ -20,28 +20,30 @@ cdef class TimeSeries:
     """
     def __init__(self, parent: Database, name: str):
         self.lock = threading.Lock()
+        self.fopen_lock = threading.Lock()
         self.parent = parent
         self.name = name
+        self.closed = False
 
         if not os.path.isdir(self.parent.path, name):
             raise DoesNotExist('Chosen time series does not exist')
 
         self.path = os.path.join(self.parent.path, self.name)
 
-
-        cdef str metadata_s = read_in_file(os.path.join(self.path, METADATA_FILE_NAME),
+        cdef:
+            str metadata_s = read_in_file(os.path.join(self.path, METADATA_FILE_NAME),
                                          'utf-8', 'invalid json')
-        cdef dict metadata
+            dict metadata
+            list files = os.path.listdir(self.path)
+            set files_s = set(files)
+            str chunk
         try:
             metadata = ujson.loads(metadata_s)
         except ValueError:
             raise Corruption('Corrupted series')
 
-        cdef list files = os.path.listdir(self.path)
-        cdef set files_s = set(files)
         files_s.remove('metadata.txt')
         self.chunks = []        # type: tp.List[int] # sorted by ASC
-        cdef str chunk
         for chunk in files:
             try:
                 self.chunks.append(int(chunk))
@@ -61,6 +63,40 @@ cdef class TimeSeries:
         self.data_in_memory = []
         self.open_chunks = {}       # tp.Dict[int, Chunk]
         self.last_synced = time.monotonic()
+        self.last_chunk = Chunk(os.path.join(self.path, str(max(self.chunks))))
+
+    cpdef Chunk open_chunk(self, unsigned long long name):
+        """
+        Opens a provided chunk
+        
+        :param name: name of the chunk
+        :type name: int
+        :return: chunk
+        :rtype: Chunk
+        :raises DoesNotExist: chunk not found
+        :raises InvalidState: resource closed
+        """
+        if self.closed:
+            raise InvalidState('Series is closed')
+        if name not in self.chunks:
+            raise DoesNotExist('Invalid chunk!')
+        with self.fopen_lock:
+            if name not in self.open_chunks:
+                self.open_chunks[name] = Chunk(os.path.join(self.path, str(name)))
+        return self.open_chunks[name]
+
+    cpdef void close(self):
+        """
+        Close the series.
+        
+        No further operations can be executed on it afterwards.
+        """
+        if self.closed:
+            return
+        cdef Chunk chunk
+        for chunk in self.data_in_memory.values():
+            chunk.close()
+        self.closed = True
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
         """
@@ -76,7 +112,11 @@ cdef class TimeSeries:
     cpdef int sync(self) except -1:
         """
         Synchronize the data kept in the memory with these kept on disk
+        
+        :raises InvalidState: the resource is closed
         """
+        if self.closed:
+            raise InvalidState('series is closed')
         cdef:
             unsigned long long min_ts = self.data_in_memory[0][0]
             str path = os.path.join(self.path, str(min_ts))
@@ -125,15 +165,23 @@ cdef class TimeSeries:
         :param data: data to write
         :type data: bytes
         :raises ValueError: Timestamp not larger than previous timestamp or invalid block size
+        :raises InvalidState: the resource is closed
         """
+        if self.closed:
+            raise InvalidState('series is closed')
         if len(data) != self.block_size:
             raise ValueError('Invalid block size')
         if timestamp <= self.last_entry_ts:
             raise ValueError('Timestamp not larger than previous timestamp')
 
         with self.lock:
-            self.data_in_memory.append((timestamp, data))
+            if len(self.last_chunk) >= self.max_entries_per_block:
+                self.last_chunk.close()
+                self.last_chunk = create_chunk(os.path.join(self.path, str(timestamp)),
+                                               [(timestamp, data)])
+            else:
+                self.last_chunk.put(timestamp, data)
+
             self.last_entry_ts = timestamp
-        if len(self.data_in_memory) >= self.max_entries_per_block:
-            self.sync()
+
         return 0
