@@ -1,10 +1,10 @@
 import unittest
 
-from tempsdb.chunks import create_chunk
-
 
 class TestDB(unittest.TestCase):
     def test_chunk(self):
+        from tempsdb.chunks import create_chunk
+
         data = [(0, b'ala '), (1, b'ma  '), (4, b'kota')]
         chunk = create_chunk('chunk.db', data)
         self.assertEqual(chunk.min_ts, 0)
