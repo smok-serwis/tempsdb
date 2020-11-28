@@ -6,8 +6,8 @@ import mmap
 from .exceptions import Corruption, InvalidState, AlreadyExists
 from .series cimport TimeSeries
 
-STRUCT_L = struct.Struct('>L')
-STRUCT_Q = struct.Struct('>Q')
+STRUCT_L = struct.Struct('<L')
+STRUCT_Q = struct.Struct('<Q')
 DEF HEADER_SIZE = 4
 DEF TIMESTAMP_SIZE = 8
 
@@ -16,8 +16,11 @@ cdef class Chunk:
     """
     Represents a single chunk of time series.
 
-    This also implements an iterator interface, and will iterate with tp.Tuple[int, bytes].
+    This also implements an iterator interface, and will iterate with tp.Tuple[int, bytes],
+    as well as a sequence protocol
 
+    :param parent: parent time series
+    :type parent: tp.Optional[TimeSeries]
     :param path: path to the chunk file
     :type path: str
 
@@ -49,12 +52,19 @@ cdef class Chunk:
             raise Corruption(f'Empty chunk file!')
         try:
             self.block_size, = STRUCT_L.unpack(self.mmap[:HEADER_SIZE])
+            self.block_size_plus = self.block_size + TIMESTAMP_SIZE
         except struct.error:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
-        self.entries = (file_size-HEADER_SIZE) // (self.block_size+TIMESTAMP_SIZE)
-        self.max_ts, = STRUCT_Q.unpack(self.mmap[-TIMESTAMP_SIZE-self.block_size:-self.block_size])
+        self.entries = (file_size-HEADER_SIZE) // (self.block_size_plus)
+        self.max_ts, = STRUCT_Q.unpack(self.mmap[file_size-self.block_size_plus:file_size-self.block_size])
         self.min_ts, = STRUCT_Q.unpack(self.mmap[HEADER_SIZE:HEADER_SIZE+TIMESTAMP_SIZE])
+
+    def __getitem__(self, index: tp.Union[int, slice]):
+        if isinstance(index, slice):
+            return self.iterate_range(index.start, index.stop)
+        else:
+            return self.get_piece_at(index)
 
     cpdef int sync(self) except -1:
         """
@@ -63,7 +73,7 @@ cdef class Chunk:
         self.mmap.flush()
         return 0
 
-    cpdef int put(self, unsigned long long timestamp, bytes data) except -1:
+    cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
         Append a record to this chunk
         
@@ -80,10 +90,10 @@ cdef class Chunk:
             raise ValueError('data not equal in length to block size!')
         if timestamp <= self.max_ts:
             raise ValueError('invalid timestamp')
-        cdef unsigned long long pointer_at_end = (self.entries+1)*(TIMESTAMP_SIZE+self.block_size) + HEADER_SIZE
+        cdef unsigned long long pointer_at_end = (self.entries+1)*self.block_size_plus + HEADER_SIZE
         with self.write_lock:
             self.mmap.resize(pointer_at_end)
-            self.mmap[pointer_at_end-self.block_size-TIMESTAMP_SIZE:pointer_at_end-self.block_size] = STRUCT_Q.pack(timestamp)
+            self.mmap[pointer_at_end-self.block_size_plus:pointer_at_end-self.block_size] = STRUCT_Q.pack(timestamp)
             self.mmap[pointer_at_end-self.block_size:pointer_at_end] = data
             self.entries += 1
             self.max_ts = timestamp
@@ -141,8 +151,8 @@ cdef class Chunk:
         if index >= self.entries:
             raise IndexError('Index too large')
         cdef:
-            unsigned long starting_index = HEADER_SIZE + index * (self.block_size+TIMESTAMP_SIZE)
-            unsigned long stopping_index = starting_index + self.block_size+TIMESTAMP_SIZE
+            unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
+            unsigned long stopping_index = starting_index + self.block_size_plus
             unsigned long long ts = STRUCT_Q.unpack(
                 self.mmap[starting_index:starting_index+TIMESTAMP_SIZE])[0]
         return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]

@@ -17,7 +17,8 @@ cdef class TimeSeries:
 
     :ivar last_entry_ts: timestamp of the last entry added or 0 if no entries yet (int)
     :ivar last_entry_synced: timestamp of the last synchronized entry (int)
-    :ivar block_size: size of the writable block of data
+    :ivar block_size: size of the writable block of data (int)
+    :ivar path: path to the directory containing the series (str)
     """
     def __init__(self, path: str):
         self.lock = threading.Lock()
@@ -120,11 +121,13 @@ cdef class TimeSeries:
         """
         if self.closed:
             raise InvalidState('series is closed')
-        cdef:
-            unsigned long long min_ts = self.data_in_memory[0][0]
-            str path = os.path.join(self.path, str(min_ts))
+
         with self.lock, open(os.path.join(self.path, METADATA_FILE_NAME), 'w') as f_out:
             ujson.dump(self._get_metadata(), f_out)
+
+        if self.last_chunk:
+            self.last_chunk.sync()
+
         return 0
 
     cdef dict _get_metadata(self):
@@ -134,7 +137,7 @@ cdef class TimeSeries:
                 'last_entry_synced': self.last_entry_synced
             }
 
-    cpdef int put(self, unsigned long long timestamp, bytes data) except -1:
+    cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
         Append an entry.
         
@@ -162,7 +165,7 @@ cdef class TimeSeries:
                                                [(timestamp, data)])
                 self.chunks.append(timestamp)
             else:
-                self.last_chunk.put(timestamp, data)
+                self.last_chunk.append(timestamp, data)
 
             self.last_entry_ts = timestamp
 
