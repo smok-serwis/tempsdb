@@ -4,7 +4,6 @@ cdef class Chunk:
         readonly unsigned long long min_ts
         readonly unsigned long long max_ts
         readonly unsigned long block_size
-        unsigned long pointer
         readonly unsigned long entries
         object file
         object mmap

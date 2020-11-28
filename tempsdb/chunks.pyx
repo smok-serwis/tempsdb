@@ -6,6 +6,8 @@ from .exceptions import Corruption
 
 STRUCT_QQL = struct.Struct('>QQL')
 STRUCT_Q = struct.Struct('>Q')
+DEF HEADER_SIZE = 20
+DEF TIMESTAMP_SIZE = 8
 
 
 cdef class Chunk:
@@ -24,22 +26,25 @@ cdef class Chunk:
     :ivar entries: amount of entries in this chunk (int)
     """
     def __init__(self, path: str):
+        cdef:
+            unsigned long long file_size = os.path.getsize(path)
+            bytes b
         self.closed = False
-        cdef unsigned long long file_size = os.path.getsize(path)
         self.path = path
-        cdef bytes b
-        print('Before open')
-        self.file = open(self.path, 'rb+')
+        self.file = open(self.path, 'rb')
         try:
             self.mmap = mmap.mmap(self.file.fileno(), file_size, access=mmap.ACCESS_READ)
         except OSError as e:
+            self.file.close()
+            self.closed = True
             raise Corruption(f'Empty chunk file!')
         try:
-            self.min_ts, self.max_ts, self.block_size = STRUCT_QQL.unpack(self.mmap[:20])
+            self.min_ts, self.max_ts, self.block_size = STRUCT_QQL.unpack(self.mmap[:HEADER_SIZE])
         except struct.error:
+            self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
-        self.pointer = 20
-        self.entries = (file_size-self.pointer) // self.block_size
+        print(f'Readed in {file_size} bytes bs={self.block_size}')
+        self.entries = (file_size-HEADER_SIZE) // (self.block_size+TIMESTAMP_SIZE)
 
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
         cdef unsigned long i = 0
@@ -71,10 +76,11 @@ cdef class Chunk:
         if index >= self.entries:
             raise IndexError('Index too large')
         cdef:
-            unsigned long starting_index = 20 + index * (self.block_size+8)
-            unsigned long stopping_index = starting_index + self.block_size+8
-            unsigned long long ts = STRUCT_Q.unpack(self.mmap[starting_index:starting_index+8])[0]
-        return ts, self.mmap[starting_index+8:stopping_index]
+            unsigned long starting_index = HEADER_SIZE + index * (self.block_size+TIMESTAMP_SIZE)
+            unsigned long stopping_index = starting_index + self.block_size+TIMESTAMP_SIZE
+            unsigned long long ts = STRUCT_Q.unpack(
+                self.mmap[starting_index:starting_index+TIMESTAMP_SIZE])[0]
+        return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]
 
 
 cpdef Chunk create_chunk(str path, list data):
@@ -100,6 +106,7 @@ cpdef Chunk create_chunk(str path, list data):
         unsigned long block_size = len(data[0][1])
         unsigned long long last_ts = 0
         bint first_element = True
+
     for ts, b in data:
         if ts < min_ts:
             min_ts = ts
