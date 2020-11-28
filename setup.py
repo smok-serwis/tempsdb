@@ -13,7 +13,7 @@ def find_pyx(*path) -> tp.List[str]:
 setup(name='tempsdb',
       version='0.1_a1',
       packages=find_packages(include=['tempsdb', 'tempsdb.*']),
-      install_requires=['satella'],
+      install_requires=['satella', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],
                         compiler_directives={
                             'language_level': '3',
