@@ -12,14 +12,7 @@ jobs:
       - python/install-deps
       - python/save-cache
       - run:
-          command: |
-            pip install satella snakehouse
-            python setup.py install
-            pip install pytest-xdist pytest-cov pytest pytest-forked pluggy py mock
-          name: Install necessary modules
-      - run:
-          command: |
-            pytest
+          command: ./manage.py test
           name: Test
 
 workflows:
