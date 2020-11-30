@@ -3,12 +3,12 @@ from .series cimport TimeSeries
 
 cdef class Database:
     cdef:
-        str path
+        readonly str path
         bint closed
         object lock
         object mpm
 
-    cpdef void close(self)
+    cpdef int close(self) except -1
     cpdef TimeSeries get_series(self, str name)
     cpdef void register_memory_pressure_manager(self, object mpm)
     cpdef TimeSeries create_series(self, str name, int block_size,

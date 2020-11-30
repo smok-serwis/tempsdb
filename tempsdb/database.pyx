@@ -10,6 +10,8 @@ cdef class Database:
     A basic TempsDB object.
 
     :param path: path to the directory with the database
+
+    :ivar path: path to  the directory with the database (str)
     """
     def __init__(self, path: str):
         self.path = path
@@ -65,6 +67,7 @@ cdef class Database:
         :type page_size: int
         :return: new series
         :rtype: TimeSeries
+        :raises AlreadyExists: series with given name already exists
         """
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
@@ -86,12 +89,13 @@ cdef class Database:
         self.mpm = mpm
         cdef TimeSeries series
         for series in self.open_series.values():
-            series.register_memory_pressure_manager(mpm)
+            if not series.closed:
+                series.register_memory_pressure_manager(mpm)
 
     def __del__(self):
         self.close()
 
-    cpdef void close(self):
+    cpdef int close(self) except -1:
         """
         Close this TempsDB database
         """

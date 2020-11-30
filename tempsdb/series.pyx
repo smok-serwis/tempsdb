@@ -282,7 +282,7 @@ cdef class TimeSeries:
 
     cpdef int close_chunks(self) except -1:
         """
-        Close all superficially opened chunks
+        Close all superficially opened chunks.
         """
         if self.last_chunk is None:
             return 0
@@ -295,12 +295,14 @@ cdef class TimeSeries:
 
         with self.open_lock:
             for chunk_name in chunks:
-                if chunk_name != last_chunk_name:
+                if chunk_name == last_chunk_name:
                     continue
-                elif not self.refs_chunks[chunk_name]:
+                elif not self.refs_chunks.get(chunk_name, 0):
                     self.open_chunks[chunk_name].close()
-                    del self.open_chunks[chunk_name]
-                    del self.refs_chunks[chunk_name]
+                    try:
+                        del self.refs_chunks[chunk_name]
+                    except KeyError:
+                        pass
         return 0
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:

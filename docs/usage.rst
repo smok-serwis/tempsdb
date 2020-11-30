@@ -1,3 +1,13 @@
+How this does work?
+===================
+
+Data is stored in so called chunks. A chunk's last page can be actively appended to, or a chunk
+is immutable.
+
+When there is a request to fetch some data, a chunk is loaded into memory. It will not
+be automatically unloaded, to do this, you must periodically call
+:meth:`~tempsdb.series.TimeSeries.close_chunks`.
+
 Usage
 =====
 
@@ -23,3 +33,4 @@ You retrieve their data via Iterators:
 Appending the data is done via :meth:`~tempsdb.series.TimeSeries.append`. Since time series are
 allocated in entire pages, so your files will be padded to a page in size. This makes writes
 quite fast, as in 99.9% cases it is just a memory operation.
+
