@@ -14,3 +14,8 @@ Then you can create and retrieve particular series:
 
 .. autoclass:: tempsdb.series.TimeSeries
     :members:
+
+You retrieve their data via Iterators:
+
+.. autoclass:: tempsdb.iterators.Iterator
+    :members:

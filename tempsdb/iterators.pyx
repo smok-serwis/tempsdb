@@ -72,24 +72,28 @@ cdef class Iterator:
         return 0
 
     def __next__(self) -> tp.Tuple[int, bytes]:
-        return self.next()
+        cdef tuple tpl = self.next()
+        if tpl is None:
+            raise StopIteration()
+        return tpl
 
     cpdef tuple next(self):
         """
-        Return next element
+        Return next element or None, if list was exhausted
         
         :return: next element
-        :rtype: tp.Tuple[int, bytes]
+        :rtype: tp.Optional[tp.Tuple[int, bytes]]
         """
-        if self.current_chunk is None:
-            self.get_next()
-        if self.i == self.limit:
-            self.get_next()
         try:
+            if self.current_chunk is None:
+                self.get_next()
+            if self.i == self.limit:
+                self.get_next()
             return self.current_chunk.get_piece_at(self.i)
+        except StopIteration:
+            return None
         finally:
             self.i += 1
 
     def __iter__(self) -> Iterator:
         return self
-
