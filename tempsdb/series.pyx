@@ -21,8 +21,9 @@ cdef class TimeSeries:
     :ivar path: path to the directory containing the series (str)
     """
     def __init__(self, path: str):
+        self.mpm = None
         self.lock = threading.Lock()
-        self.fopen_lock = threading.Lock()
+        self.open_lock = threading.Lock()
         self.closed = False
 
         self.path = path
@@ -84,7 +85,7 @@ cdef class TimeSeries:
             raise InvalidState('Series is closed')
         if name not in self.chunks:
             raise DoesNotExist('Invalid chunk!')
-        with self.fopen_lock:
+        with self.open_lock:
             if name not in self.open_chunks:
                 self.open_chunks[name] = Chunk(self, os.path.join(self.path, str(name)))
         return self.open_chunks[name]
@@ -100,6 +101,9 @@ cdef class TimeSeries:
         cdef Chunk chunk
         for chunk in self.data_in_memory.values():
             chunk.close()
+        if self.mpm is not None:
+            self.mpm.cancel()
+            self.mpm = None
         self.closed = True
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
@@ -137,6 +141,37 @@ cdef class TimeSeries:
                 'last_entry_synced': self.last_entry_synced
             }
 
+    cpdef void register_memory_pressure_manager(self, object mpm):
+        """
+        Register a memory pressure manager.
+        
+        This registers :meth:`~tempsdb.series.TimeSeries.close_chunks` as remaining in severity
+        to be called each 30 minutes.
+        """
+        self.mpm = mpm.register_on_remaining_in_severity(1, 30)(self.close_chunks)
+
+    cpdef int close_chunks(self) except -1:
+        """
+        Close all superficially opened chunks
+        """
+        if self.last_chunk is None:
+            return 0
+        if len(self.chunks) == 1:
+            return 0
+        cdef:
+            unsigned long long chunk_name
+            list chunks = list(self.open_chunks.keys())
+            unsigned long long last_chunk_name = self.last_chunk.name()
+
+        with self.open_lock:
+            for chunk_name in chunks:
+                if chunk_name != last_chunk_name:
+                    continue
+                else:
+                    self.open_chunks[chunk_name].close()
+                    del self.open_chunks[chunk_name]
+        return 0
+
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
         Append an entry.
@@ -160,21 +195,25 @@ cdef class TimeSeries:
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                [(timestamp, data)])
                 self.open_chunks[timestamp] = self.last_chunk
+                self.chunks.append(timestamp)
             elif self.last_chunk.length() >= self.max_entries_per_chunk:
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                [(timestamp, data)])
                 self.chunks.append(timestamp)
             else:
                 self.last_chunk.append(timestamp, data)
-
             self.last_entry_ts = timestamp
 
         return 0
 
     cpdef int delete(self) except -1:
         """
-        Erase this series from the disk
+        Erase this series from the disk. Series must be opened to do that.
+        
+        :raises InvalidState: series is not opened
         """
+        if self.closed:
+            raise InvalidState('series is closed')
         self.close()
         shutil.rmtree(self.path)
 

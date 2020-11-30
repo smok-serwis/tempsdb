@@ -16,6 +16,7 @@ cdef class Database:
         self.closed = False
         self.open_series = {}
         self.lock = threading.Lock()
+        self.mpm = None
 
     cpdef TimeSeries get_series(self, name: str):
         """
@@ -41,7 +42,23 @@ cdef class Database:
                 if not os.path.isdir(path):
                     raise DoesNotExist('series %s does not exist' % (name, ))
                 self.open_series[name] = result = TimeSeries(path)
+                if self.mpm is not None:
+                    result.register_memory_pressure_manager(self.mpm)
         return result
+
+    cpdef void register_memory_pressure_manager(self, object mpm):
+        """
+        Register a satella MemoryPressureManager_ to close chunks if low on memory.
+        
+        .. _MemoryPressureManager: https://satella.readthedocs.io/en/latest/instrumentation/memory.html
+        
+        :param mpm: MemoryPressureManager to use
+        :type mpm: satella.instrumentation.memory.MemoryPressureManager
+        """
+        self.mpm = mpm
+        cdef TimeSeries series
+        for series in self.open_series.values():
+            series.register_memory_pressure_manager(mpm)
 
     def __del__(self):
         self.close()

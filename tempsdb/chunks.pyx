@@ -184,7 +184,7 @@ cdef class Chunk:
         if self.closed:
             return
         if self.parent:
-            with self.parent.fopen_lock:
+            with self.parent.open_lock:
                 del self.parent.open_chunks[self.min_ts]
         self.parent = None
         self.mmap.close()

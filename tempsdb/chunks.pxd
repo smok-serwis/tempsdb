@@ -28,7 +28,7 @@ cdef class Chunk:
     cpdef unsigned int find_left(self, unsigned long long timestamp)
     cpdef unsigned int find_right(self, unsigned long long timestamp)
 
-    cdef unsigned long long name(self):
+    cdef inline unsigned long long name(self):
         """
         :return: the name of this chunk
         :rtype: int 

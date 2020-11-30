@@ -13,6 +13,7 @@ Welcome to tempsdb's documentation!
    usage
    exceptions
    chunks
+   memory-pressure-manager
 
 It tries to use mmap for reads and writes, and in general is as zero-copy as possible (ie. the
 only time data is unserialized is when a particular entry is read).
