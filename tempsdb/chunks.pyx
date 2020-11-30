@@ -133,8 +133,11 @@ cdef class Chunk:
         Adds PAGE_SIZE bytes to this file
         """
         self.file_size += self.page_size
+        self.file.seek(0, 2)
+        cdef bytearray ba = bytearray(self.page_size)
+        ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
+        self.file.write(ba)
         self.mmap.resize(self.file_size)
-        self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)
 
     cdef unsigned long long get_timestamp_at(self, unsigned int index):
         """
@@ -147,6 +150,14 @@ cdef class Chunk:
         """
         cdef unsigned long offset = HEADER_SIZE+index*self.block_size_plus
         return STRUCT_Q.unpack(self.mmap[offset:offset+TIMESTAMP_SIZE])[0]
+
+    cpdef int delete(self) except -1:
+        """
+        Close and delete this chunk.
+        """
+        self.close()
+        os.unlink(self.path)
+        return 0
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
@@ -209,18 +220,19 @@ cdef class Chunk:
     def __len__(self):
         return self.length()
 
-    cpdef void close(self):
+    cpdef int close(self) except -1:
         """
         Close the chunk and close the allocated resources
         """
         if self.closed:
-            return
+            return 0
         if self.parent:
             with self.parent.open_lock:
-                del self.parent.open_chunks[self.min_ts]
+                del self.parent.open_chunks[self.name()]
         self.parent = None
         self.mmap.close()
         self.file.close()
+        return 0
 
     def __del__(self):
         self.close()

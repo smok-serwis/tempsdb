@@ -1,12 +1,9 @@
-import itertools
 import shutil
 import threading
-import time
 import ujson
 from satella.files import read_in_file
 
 from .chunks cimport create_chunk, Chunk
-from .database cimport Database
 from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 import os
 
@@ -27,8 +24,8 @@ cdef class TimeSeries:
     """
     def __init__(self, path: str):
         self.mpm = None
-        self.lock = threading.Lock()
-        self.open_lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.open_lock = threading.RLock()
         self.refs_chunks = {}
         self.closed = False
 
@@ -41,9 +38,10 @@ cdef class TimeSeries:
             str metadata_s = read_in_file(os.path.join(self.path, METADATA_FILE_NAME),
                                          'utf-8', 'invalid json')
             dict metadata
+            str filename
             list files = os.listdir(self.path)
-            set files_s = set(files)
-            str chunk
+            unsigned long long last_chunk_name
+
         try:
             metadata = ujson.loads(metadata_s)      # raises ValueError
             # raises KeyError
@@ -58,32 +56,38 @@ cdef class TimeSeries:
 
         self.open_chunks = {}       # tp.Dict[int, Chunk]
 
-        files_s.remove('metadata.txt')
-        if not files_s:
+        if not len(files):
+            raise Corruption('Empty directory!')
+        elif len(files) == 1:
+            # empty series
             self.last_chunk = None
             self.chunks = []
             self.last_entry_ts = 0
         else:
             self.chunks = []        # type: tp.List[int] # sorted by ASC
-            for chunk in files:
+            for filename in files:
+                if filename == METADATA_FILE_NAME:
+                    continue
                 try:
-                    self.chunks.append(int(chunk))
+                    self.chunks.append(int(filename))
                 except ValueError:
-                    raise Corruption('Detected invalid file "%s"' % (chunk, ))
+                    raise Corruption('Detected invalid file "%s"' % (filename, ))
             self.chunks.sort()
-            self.last_chunk = Chunk(self, os.path.join(self.path, str(max(self.chunks))))
-            self.open_chunks[self.last_chunk.min_ts] = self.last_chunk
+
+            last_chunk_name = self.chunks[-1]
+            self.last_chunk = self.open_chunk(last_chunk_name)
             self.last_entry_ts = self.last_chunk.max_ts
 
-    cpdef void done_chunk(self, unsigned long long name):
-        """
-        Signal that we are done with given chunk and that it can be freed.
-        
-        Releases the reference to a chunk.
-        """
+    cdef void decref_chunk(self, unsigned long long name):
         self.refs_chunks[name] -= 1
 
-    cpdef Chunk open_chunk(self, unsigned long long name):
+    cdef void incref_chunk(self, unsigned long long name):
+        if name not in self.refs_chunks:
+            self.refs_chunks[name] = 1
+        else:
+            self.refs_chunks[name] += 1
+
+    cdef Chunk open_chunk(self, unsigned long long name):
         """
         Opens a provided chunk.
         
@@ -100,28 +104,51 @@ cdef class TimeSeries:
             raise InvalidState('Series is closed')
         if name not in self.chunks:
             raise DoesNotExist('Invalid chunk!')
+        cdef Chunk chunk
         with self.open_lock:
             if name not in self.open_chunks:
-                self.open_chunks[name] = Chunk(self,
-                                               os.path.join(self.path, str(name)),
-                                               self.page_size)
-        if name not in self.refs_chunks:
-            self.refs_chunks[name] = 1
-        else:
-            self.refs_chunks[name] += 1
-        return self.open_chunks[name]
+                self.open_chunks[name] = chunk = Chunk(self,
+                                                       os.path.join(self.path, str(name)),
+                                                       self.page_size)
+            else:
+                chunk = self.open_chunks[name]
+            self.incref_chunk(name)
+        return chunk
 
     cpdef int trim(self, unsigned long long timestamp) except -1:
         """
         Delete all entries earlier than timestamp.
         
         Note that this will drop entire chunks, so it may be possible that some entries will linger
-        on. This will not delete opened chunks, but it will delete them on release.
+        on. This will not delete currently opened chunks!
         
         :param timestamp: timestamp to delete entries earlier than
         :type timestamp: int
         """
-        # todo: write it
+        if len(self.chunks) == 1:
+            return 0
+        cdef:
+            unsigned long long chunk_to_delete
+            int refs
+        try:
+            with self.open_lock:
+                while len(self.chunks) >= 2 and timestamp > self.chunks[1]:
+                    chunk_to_delete = self.chunks[0]
+                    if chunk_to_delete in self.open_chunks:
+                        refs = self.refs_chunks.get(chunk_to_delete, 0)
+                        if not refs:
+                            self.open_chunks[chunk_to_delete].delete()
+                        else:
+                            # I would delete it, but it's open...
+                            return 0
+                    else:
+                        os.unlink(os.path.join(self.path, str(chunk_to_delete)))
+                    del self.chunks[0]
+                else:
+                    return 0
+        except IndexError:
+            return 0
+        return 0
 
     cpdef void close(self):
         """
@@ -131,15 +158,18 @@ cdef class TimeSeries:
         """
         if self.closed:
             return
-        cdef Chunk chunk
-        for chunk in self.data_in_memory.values():
+        cdef:
+            Chunk chunk
+            list open_chunks
+        open_chunks = list(self.open_chunks.values())
+        for chunk in open_chunks:
             chunk.close()
         if self.mpm is not None:
             self.mpm.cancel()
             self.mpm = None
         self.closed = True
 
-    cpdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):
+    cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):
         """
         Return the index of chunk that should have given timestamp
         
@@ -210,8 +240,12 @@ cdef class TimeSeries:
         :type timestamp: int
         """
         self.last_entry_synced = timestamp
-        self.sync()
+        self.sync_metadata()
         return 0
+
+    cdef int sync_metadata(self) except -1:
+        with self.lock, open(os.path.join(self.path, METADATA_FILE_NAME), 'w') as f_out:
+            ujson.dump(self.get_metadata(), f_out)
 
     cpdef int sync(self) except -1:
         """
@@ -222,15 +256,14 @@ cdef class TimeSeries:
         if self.closed:
             raise InvalidState('series is closed')
 
-        with self.lock, open(os.path.join(self.path, METADATA_FILE_NAME), 'w') as f_out:
-            ujson.dump(self._get_metadata(), f_out)
+        self.sync_metadata()
 
-        if self.last_chunk:
+        if self.last_chunk is not None:
             self.last_chunk.sync()
 
         return 0
 
-    cdef dict _get_metadata(self):
+    cdef dict get_metadata(self):
         return {
                 'block_size': self.block_size,
                 'max_entries_per_chunk': self.max_entries_per_chunk,
@@ -238,7 +271,7 @@ cdef class TimeSeries:
                 'page_size': self.page_size
             }
 
-    cpdef void register_memory_pressure_manager(self, object mpm):
+    cdef void register_memory_pressure_manager(self, object mpm):
         """
         Register a memory pressure manager.
         
@@ -285,16 +318,19 @@ cdef class TimeSeries:
             raise InvalidState('series is closed')
         if len(data) != self.block_size:
             raise ValueError('Invalid block size, was %s should be %s' % (len(data), self.block_size))
-        if timestamp <= self.last_entry_ts:
+        if timestamp <= self.last_entry_ts and self.last_entry_ts:
             raise ValueError('Timestamp not larger than previous timestamp')
 
         with self.lock, self.open_lock:
             # If this is indeed our first chunk, or we've exceeded the limit of entries per chunk
             if self.last_chunk is None or self.last_chunk.length() >= self.max_entries_per_chunk:
                 # Create a next chunk
+                if self.last_chunk is not None:
+                    self.decref_chunk(self.last_chunk.name())
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                timestamp, data, self.page_size)
                 self.open_chunks[timestamp] = self.last_chunk
+                self.incref_chunk(timestamp)
                 self.chunks.append(timestamp)
             else:
                 self.last_chunk.append(timestamp, data)

@@ -2,7 +2,7 @@ import os
 import threading
 
 from tempsdb.exceptions import DoesNotExist, AlreadyExists
-from .series cimport TimeSeries
+from .series cimport TimeSeries, create_series
 
 
 cdef class Database:
@@ -38,6 +38,9 @@ cdef class Database:
             with self.lock:
                 # Check a second time due to the lock
                 if name in self.open_series:
+                    if self.open_series[name].closed:
+                        del self.open_series[name]
+                        return self.open_series(name)
                     return self.open_series[name]
                 if not os.path.isdir(path):
                     raise DoesNotExist('series %s does not exist' % (name, ))
@@ -45,6 +48,31 @@ cdef class Database:
                 if self.mpm is not None:
                     result.register_memory_pressure_manager(self.mpm)
         return result
+
+    cpdef TimeSeries create_series(self, str name, int block_size,
+                                   unsigned long entries_per_chunk,
+                                   int page_size=4096):
+        """
+        Create a new series
+        
+        :param name: name of the series
+        :type name: str
+        :param block_size: size of the data field
+        :type block_size: int
+        :param entries_per_chunk: entries per chunk file
+        :type entries_per_chunk: int
+        :param page_size: size of a single page
+        :type page_size: int
+        :return: new series
+        :rtype: TimeSeries
+        """
+        if os.path.isdir(os.path.join(self.path, name)):
+            raise AlreadyExists('Series already exists')
+        cdef TimeSeries series = create_series(os.path.join(self.name, name),
+                                               block_size,
+                                               entries_per_chunk, page_size=page_size)
+        self.open_series[name] = series
+        return series
 
     cpdef void register_memory_pressure_manager(self, object mpm):
         """

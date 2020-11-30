@@ -1,8 +1,19 @@
 import os
+import sys
 import unittest
 
 
 class TestDB(unittest.TestCase):
+    def test_write_series(self):
+        from tempsdb.series import create_series
+        series = create_series('test3', 10, 4096)
+        for i in range(8000):
+            series.append(i, b'\x00'*10)
+        series.trim(4100)
+
+        self.assertEqual(len(os.listdir('test3')), 2)
+        series.close()
+
     def test_create_series(self):
         from tempsdb.series import create_series
 
@@ -20,9 +31,13 @@ class TestDB(unittest.TestCase):
         self.do_verify_series(series, 0, 500)
         self.do_verify_series(series, 0, 1200)
         self.do_verify_series(series, 0, 1800)
+        series.close()
+        print(f'after close')
 
     def do_verify_series(self, series, start, stop):
-        items = list(series.iterate_range(start, stop))
+        it = series.iterate_range(start, stop)
+        items = list(it)
+        it.close()
         self.assertGreaterEqual(items[0][0], start)
         self.assertLessEqual(items[-1][0], stop)
 

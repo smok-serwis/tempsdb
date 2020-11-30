@@ -43,15 +43,15 @@ cdef class Iterator:
         self.closed = True
         cdef Chunk chunk
         for chunk in self.chunks:
-            self.parent.done_chunk(chunk.name())
+            self.parent.decref_chunk(chunk.name())
         self.chunks = None
 
-    cdef int _get_next(self) except -1:
+    cdef int get_next(self) except -1:
         """
         Fetch next chunk, set i, is_first, is_last and limit appropriately
         """
         if self.current_chunk is not None:
-            self.parent.done_chunk(self.current_chunk.name())
+            self.parent.decref_chunk(self.current_chunk.name())
             self.is_first = False
         else:
             self.is_first = True
@@ -92,9 +92,9 @@ cdef class Iterator:
         """
         try:
             if self.current_chunk is None:
-                self._get_next()
-            if self.i == self.limit:
-                self._get_next()
+                self.get_next()
+            elif self.i == self.limit:
+                self.get_next()
             return self.current_chunk.get_piece_at(self.i)
         except StopIteration:
             return None

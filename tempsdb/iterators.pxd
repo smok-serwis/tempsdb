@@ -14,5 +14,5 @@ cdef class Iterator:
         Chunk current_chunk
 
     cpdef void close(self)
-    cdef int _get_next(self) except -1
+    cdef int get_next(self) except -1
     cpdef tuple next(self)
