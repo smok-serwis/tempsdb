@@ -1,9 +1,5 @@
 from .series cimport TimeSeries
-import struct
 
-STRUCT_Q = struct.Struct('<Q')
-DEF HEADER_SIZE = 4
-DEF TIMESTAMP_SIZE = 8
 
 cdef class Chunk:
     cdef:
@@ -11,7 +7,7 @@ cdef class Chunk:
         readonly str path
         readonly unsigned long long min_ts
         readonly unsigned long long max_ts
-        unsigned int block_size_plus
+        unsigned int block_size_plus        # block size plus timestamp length
         readonly unsigned int block_size
         readonly unsigned long entries
         unsigned long file_size
@@ -20,14 +16,12 @@ cdef class Chunk:
         object file
         object mmap
         bint closed
-        readonly bint writable
-        object write_lock
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
     cpdef int close(self) except -1
     cdef tuple get_piece_at(self, unsigned int index)
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
-    cpdef int sync(self) except -1
+    cdef int sync(self) except -1
     cpdef unsigned int find_left(self, unsigned long long timestamp)
     cpdef unsigned int find_right(self, unsigned long long timestamp)
     cdef int extend(self) except -1

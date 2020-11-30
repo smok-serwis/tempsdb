@@ -33,21 +33,16 @@ cdef class Chunk:
     :ivar entries: amount of entries in this chunk (int)
     :ivar writable: is this chunk writable (bool)
     """
-    def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int, writable: bool = True):
+    def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int):
         cdef bytes b
         self.file_size = os.path.getsize(path)
         self.page_size = page_size
         self.parent = parent
-        self.writable = writable
-        self.write_lock = threading.Lock()
         self.closed = False
         self.path = path
-        self.file = open(self.path, 'rb+' if self.writable else 'rb')
+        self.file = open(self.path, 'rb+')
         try:
-            if self.writable:
-                self.mmap = mmap.mmap(self.file.fileno(), 0)
-            else:
-                self.mmap = mmap.mmap(self.file.fileno(), 0, access=mmap.ACCESS_READ)
+            self.mmap = mmap.mmap(self.file.fileno(), 0)
         except OSError as e:
             self.file.close()
             self.closed = True
@@ -58,6 +53,8 @@ cdef class Chunk:
         except struct.error:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
+
+        self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
 
         self.entries, = STRUCT_L.unpack(self.mmap[self.file_size-FOOTER_SIZE:self.file_size])
         self.pointer = self.entries*self.block_size_plus+HEADER_SIZE
@@ -121,7 +118,7 @@ cdef class Chunk:
         else:
             return self.get_piece_at(index)
 
-    cpdef int sync(self) except -1:
+    cdef int sync(self) except -1:
         """
         Synchronize the mmap
         """
@@ -161,16 +158,21 @@ cdef class Chunk:
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
-        Append a record to this chunk
+        Append a record to this chunk.
+        
+        Might range from very fast (just a memory operation) to quite slow (adding a new page
+        to the file).
+        
+        Simultaneous writing is not thread-safe.
         
         :param timestamp: timestamp of the entry
         :type timestamp: int
         :param data: data to write
         :type data: bytes
-        :raises InvalidState: chunk is closed or not writable
+        :raises InvalidState: chunk is closed
         :raises ValueError: invalid timestamp or data
         """
-        if self.closed or not self.writable:
+        if self.closed:
             raise InvalidState('chunk is closed')
         if len(data) != self.block_size:
             raise ValueError('data (%s) not equal in length to block size (%s)!' % (
@@ -182,16 +184,15 @@ cdef class Chunk:
         if self.pointer >= self.file_size-FOOTER_SIZE-self.block_size_plus:
             self.extend()
 
-        with self.write_lock:
-            # Append entry
-            self.mmap[self.pointer:self.pointer+TIMESTAMP_SIZE] = STRUCT_Q.pack(timestamp)
-            self.mmap[self.pointer+TIMESTAMP_SIZE:self.pointer+TIMESTAMP_SIZE+self.block_size] = data
-            self.entries += 1
-            # Update entries count
-            self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)
-            # Update properties
-            self.max_ts = timestamp
-            self.pointer += self.block_size_plus
+        # Append entry
+        self.mmap[self.pointer:self.pointer+TIMESTAMP_SIZE] = STRUCT_Q.pack(timestamp)
+        self.mmap[self.pointer+TIMESTAMP_SIZE:self.pointer+TIMESTAMP_SIZE+self.block_size] = data
+        self.entries += 1
+        # Update entries count
+        self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)
+        # Update properties
+        self.max_ts = timestamp
+        self.pointer += self.block_size_plus
         return 0
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
