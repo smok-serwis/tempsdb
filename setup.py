@@ -20,11 +20,10 @@ def find_pyx(*path) -> tp.List[str]:
 
 
 setup(name='tempsdb',
-      version='0.1_a4',
+      version='0.1_a5',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.21', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],
-                        gdb_debug=True,
                         compiler_directives={
                             'language_level': '3',
                         }),
