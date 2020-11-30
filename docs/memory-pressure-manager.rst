@@ -4,6 +4,7 @@ Integration with Satella's MemoryPressureManager
 This library integrates itself with Satella_ MemoryPressureManager_.
 
 .. _Satella: https://github.com/piotrmaslanka/satella
+.. _MemoryPressureManager: https://satella.readthedocs.io/en/latest/instrumentation/memory.html
 
 It will close the non-required chunks when remaining in severity 1 each 30 seconds.
 
