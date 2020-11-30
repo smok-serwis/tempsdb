@@ -11,6 +11,7 @@ cdef class TimeSeries:
         readonly unsigned long long last_entry_synced
         readonly unsigned int block_size
         readonly unsigned long long last_entry_ts
+        unsigned int page_size
         list chunks
         dict open_chunks
         list data_in_memory
@@ -27,4 +28,5 @@ cdef class TimeSeries:
     cpdef int sync(self) except -1
     cpdef int close_chunks(self) except -1
 
-cpdef TimeSeries create_series(str path, unsigned int block_size, int max_entries_per_chunk)
+cpdef TimeSeries create_series(str path, unsigned int block_size,
+                               int max_entries_per_chunk, int page_size=*)

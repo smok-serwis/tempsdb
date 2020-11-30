@@ -16,3 +16,5 @@ A file storing a chunk consists as follows:
 * repeated
     * 8 bytes unsigned long long - timestamp
     * block_size bytes of data
+
+It's padded to `page_size` with zeros, and four last bytes is the `unsigned long` amount of entries

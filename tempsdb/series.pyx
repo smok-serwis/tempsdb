@@ -63,6 +63,7 @@ cdef class TimeSeries:
                 self.block_size = metadata['block_size']
                 self.max_entries_per_chunk = metadata['max_entries_per_chunk']
                 self.last_entry_synced = metadata['last_entry_synced']
+                self.page_size = metadata['page_size']
             except KeyError:
                 raise Corruption('Could not read metadata item')
 
@@ -138,7 +139,8 @@ cdef class TimeSeries:
         return {
                 'block_size': self.block_size,
                 'max_entries_per_chunk': self.max_entries_per_chunk,
-                'last_entry_synced': self.last_entry_synced
+                'last_entry_synced': self.last_entry_synced,
+                'page_size': self.page_size
             }
 
     cpdef void register_memory_pressure_manager(self, object mpm):
@@ -193,12 +195,12 @@ cdef class TimeSeries:
         with self.lock:
             if self.last_chunk is None:
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
-                                               [(timestamp, data)])
+                                               [(timestamp, data)], self.page_size)
                 self.open_chunks[timestamp] = self.last_chunk
                 self.chunks.append(timestamp)
             elif self.last_chunk.length() >= self.max_entries_per_chunk:
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
-                                               [(timestamp, data)])
+                                               [(timestamp, data)], self.page_size)
                 self.chunks.append(timestamp)
             else:
                 self.last_chunk.append(timestamp, data)
@@ -219,7 +221,7 @@ cdef class TimeSeries:
 
 
 cpdef TimeSeries create_series(str path, unsigned int block_size,
-                               int max_entries_per_chunk):
+                               int max_entries_per_chunk, int page_size=4096):
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
 
@@ -228,7 +230,8 @@ cpdef TimeSeries create_series(str path, unsigned int block_size,
         ujson.dump({
             'block_size': block_size,
             'max_entries_per_chunk': max_entries_per_chunk,
-            'last_entry_synced': 0
+            'last_entry_synced': 0,
+            'page_size': page_size
             }, f_out
         )
     return TimeSeries(path)

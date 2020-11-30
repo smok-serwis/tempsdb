@@ -14,6 +14,9 @@ cdef class Chunk:
         unsigned int block_size_plus
         readonly unsigned int block_size
         readonly unsigned long entries
+        unsigned long file_size
+        unsigned long pointer       # position to write next entry at
+        unsigned long page_size
         object file
         object mmap
         bint closed
@@ -27,6 +30,7 @@ cdef class Chunk:
     cpdef int sync(self) except -1
     cpdef unsigned int find_left(self, unsigned long long timestamp)
     cpdef unsigned int find_right(self, unsigned long long timestamp)
+    cdef int extend(self) except -1
 
     cdef inline unsigned long long name(self):
         """
@@ -42,16 +46,7 @@ cdef class Chunk:
         """
         return self.entries
 
-    cdef inline unsigned long long get_timestamp_at(self, unsigned int index):
-        """
-        Get timestamp at given entry
-        
-        :param index: index of the entry
-        :type index: int
-        :return: timestamp at this entry
-        :rtype: int
-        """
-        cdef unsigned long offset = HEADER_SIZE+index*self.block_size_plus
-        return STRUCT_Q.unpack(self.mmap[offset:offset+TIMESTAMP_SIZE])[0]
+    cdef unsigned long long get_timestamp_at(self, unsigned int index)
 
-cpdef Chunk create_chunk(TimeSeries parent, str path, list data)
+
+cpdef Chunk create_chunk(TimeSeries parent, str path, list data, int page_size)
