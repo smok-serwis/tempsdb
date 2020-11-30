@@ -77,7 +77,7 @@ cdef class Database:
         self.open_series[name] = series
         return series
 
-    cpdef void register_memory_pressure_manager(self, object mpm):
+    cpdef int register_memory_pressure_manager(self, object mpm) except -1:
         """
         Register a satella MemoryPressureManager_ to close chunks if low on memory.
         
@@ -91,6 +91,7 @@ cdef class Database:
         for series in self.open_series.values():
             if not series.closed:
                 series.register_memory_pressure_manager(mpm)
+        return 0
 
     def __del__(self):
         self.close()
@@ -100,11 +101,12 @@ cdef class Database:
         Close this TempsDB database
         """
         if self.closed:
-            return
+            return 0
         cdef TimeSeries series
         for series in self.open_series.values():
             series.close()
         self.closed = True
+        return 0
 
 
 cpdef Database create_database(str path):

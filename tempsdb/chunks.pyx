@@ -30,7 +30,6 @@ cdef class Chunk:
     :ivar max_ts: timestamp of the last entry stored (int)
     :ivar block_size: size of the data entries (int)
     :ivar entries: amount of entries in this chunk (int)
-    :ivar writable: is this chunk writable (bool)
     :ivar page_size: size of the page (int)
     """
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int):
@@ -54,11 +53,13 @@ cdef class Chunk:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
 
-        self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
-
         self.entries, = STRUCT_L.unpack(self.mmap[self.file_size-FOOTER_SIZE:self.file_size])
         self.pointer = self.entries*self.block_size_plus+HEADER_SIZE
         self.max_ts = self.get_timestamp_at(self.entries-1)
+
+        if self.pointer >= self.page_size:
+            # Inform the OS that we don't need the header anymore
+            self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
 
     cpdef unsigned int find_left(self, unsigned long long timestamp):
         """
@@ -165,21 +166,17 @@ cdef class Chunk:
         
         Simultaneous writing is not thread-safe.
         
+        Timestamp and data is not checked for, this is supposed to be handled by
+        :class:`~tempsdb.series.TimeSeries`.
+        
         :param timestamp: timestamp of the entry
         :type timestamp: int
         :param data: data to write
         :type data: bytes
         :raises InvalidState: chunk is closed
-        :raises ValueError: invalid timestamp or data
         """
         if self.closed:
             raise InvalidState('chunk is closed')
-        if len(data) != self.block_size:
-            raise ValueError('data (%s) not equal in length to block size (%s)!' % (
-                len(data), self.block_size
-            ))
-        if timestamp <= self.max_ts:
-            raise ValueError('invalid timestamp')
 
         if self.pointer >= self.file_size-FOOTER_SIZE-self.block_size_plus:
             self.extend()
