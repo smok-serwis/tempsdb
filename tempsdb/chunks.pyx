@@ -1,5 +1,4 @@
 import os
-import threading
 import typing as tp
 import struct
 import mmap
@@ -32,6 +31,7 @@ cdef class Chunk:
     :ivar block_size: size of the data entries (int)
     :ivar entries: amount of entries in this chunk (int)
     :ivar writable: is this chunk writable (bool)
+    :ivar page_size: size of the page (int)
     """
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int):
         cdef bytes b

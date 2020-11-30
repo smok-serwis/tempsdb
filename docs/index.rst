@@ -1,8 +1,3 @@
-.. tempsdb documentation master file, created by
-   sphinx-quickstart on Sat Nov 28 15:49:03 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to tempsdb's documentation!
 ===================================
 
@@ -15,8 +10,11 @@ Welcome to tempsdb's documentation!
    chunks
    memory-pressure-manager
 
+This is an append-only embedded time series library written in Cython.
+
 It tries to use mmap for reads and writes, and in general is as zero-copy as possible (ie. the
-only time data is unserialized is when a particular entry is read).
+only time data is unserialized is when a particular entry is read). It also uses
+iterators.
 
 Stored time series with a 8-bit timestamp and a fixed length of data.
 So no variable encoding for you!

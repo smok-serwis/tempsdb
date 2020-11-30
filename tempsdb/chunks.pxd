@@ -12,9 +12,8 @@ cdef class Chunk:
         readonly unsigned long entries
         unsigned long file_size
         unsigned long pointer       # position to write next entry at
-        unsigned long page_size
-        object file
-        object mmap
+        readonly unsigned long page_size
+        object file, mmap
         bint closed
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
