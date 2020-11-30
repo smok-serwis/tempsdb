@@ -25,7 +25,7 @@ cdef class Chunk:
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
     cpdef void close(self)
-    cpdef tuple get_piece_at(self, unsigned int index)
+    cdef tuple get_piece_at(self, unsigned int index)
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
     cpdef unsigned int find_left(self, unsigned long long timestamp)

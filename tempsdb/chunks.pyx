@@ -225,7 +225,7 @@ cdef class Chunk:
     def __del__(self):
         self.close()
 
-    cpdef tuple get_piece_at(self, unsigned int index):
+    cdef tuple get_piece_at(self, unsigned int index):
         """
         Return a piece of data at a particular index, numbered from 0
         

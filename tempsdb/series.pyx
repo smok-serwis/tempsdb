@@ -111,6 +111,18 @@ cdef class TimeSeries:
             self.refs_chunks[name] += 1
         return self.open_chunks[name]
 
+    cpdef int trim(self, unsigned long long timestamp) except -1:
+        """
+        Delete all entries earlier than timestamp.
+        
+        Note that this will drop entire chunks, so it may be possible that some entries will linger
+        on. This will not delete opened chunks, but it will delete them on release.
+        
+        :param timestamp: timestamp to delete entries earlier than
+        :type timestamp: int
+        """
+        # todo: write it
+
     cpdef void close(self):
         """
         Close the series.
