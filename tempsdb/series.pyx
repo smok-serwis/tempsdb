@@ -29,6 +29,7 @@ cdef class TimeSeries:
         self.mpm = None
         self.lock = threading.Lock()
         self.open_lock = threading.Lock()
+        self.refs_chunks = {}
         self.closed = False
 
         self.path = path
@@ -74,9 +75,19 @@ cdef class TimeSeries:
             self.open_chunks[self.last_chunk.min_ts] = self.last_chunk
             self.last_entry_ts = self.last_chunk.max_ts
 
+    cpdef void done_chunk(self, unsigned long long name):
+        """
+        Signal that we are done with given chunk and that it can be freed.
+        
+        Releases the reference to a chunk.
+        """
+        self.refs_chunks[name] -= 1
+
     cpdef Chunk open_chunk(self, unsigned long long name):
         """
-        Opens a provided chunk
+        Opens a provided chunk.
+        
+        Acquires a reference to the chunk.
         
         :param name: name of the chunk
         :type name: int
@@ -94,6 +105,10 @@ cdef class TimeSeries:
                 self.open_chunks[name] = Chunk(self,
                                                os.path.join(self.path, str(name)),
                                                self.page_size)
+        if name not in self.refs_chunks:
+            self.refs_chunks[name] = 1
+        else:
+            self.refs_chunks[name] += 1
         return self.open_chunks[name]
 
     cpdef void close(self):
@@ -141,7 +156,7 @@ cdef class TimeSeries:
         except IndexError:
             return len(self.chunks)-1
 
-    cpdef object iterate_range(self, unsigned long long start, unsigned long long stop):
+    cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop):
         """
         Return an iterator through collected data with given timestamps.
         
@@ -165,25 +180,15 @@ cdef class TimeSeries:
         cdef:
             unsigned int ch_start = self.get_index_of_chunk_for(start)
             unsigned int ch_stop = self.get_index_of_chunk_for(stop)
-            list iterator = []
+            list chunks = []
             bint is_first
             bint is_last
             unsigned int chunk_index
             Chunk chunk
 
         for chunk_index in range(ch_start, ch_stop+1):
-            chunk = self.open_chunk(self.chunks[chunk_index])
-            is_first = chunk_index == ch_start
-            is_last = chunk_index == ch_stop
-            if is_first and is_last:
-                return chunk.iterate_indices(chunk.find_left(start), chunk.find_right(stop))
-            elif is_first:
-                iterator.append(chunk.iterate_indices(chunk.find_left(start), chunk.entries))
-            elif is_last:
-                iterator.append(chunk.iterate_indices(0, chunk.find_right(stop)))
-            else:
-                iterator.append(chunk.iterate_indices(0, chunk.entries))
-        return itertools.chain(*iterator)
+            chunks.append(self.open_chunk(self.chunks[chunk_index]))
+        return Iterator(self, start, stop, chunks)
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
         """
@@ -247,9 +252,10 @@ cdef class TimeSeries:
             for chunk_name in chunks:
                 if chunk_name != last_chunk_name:
                     continue
-                else:
+                elif not self.refs_chunks[chunk_name]:
                     self.open_chunks[chunk_name].close()
                     del self.open_chunks[chunk_name]
+                    del self.refs_chunks[chunk_name]
         return 0
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
