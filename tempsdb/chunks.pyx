@@ -180,10 +180,10 @@ cdef class Chunk:
 
         if self.pointer >= self.file_size-FOOTER_SIZE-self.block_size_plus:
             self.extend()
-
+        cdef unsigned long long ptr_end = self.pointer + TIMESTAMP_SIZE
         # Append entry
-        self.mmap[self.pointer:self.pointer+TIMESTAMP_SIZE] = STRUCT_Q.pack(timestamp)
-        self.mmap[self.pointer+TIMESTAMP_SIZE:self.pointer+TIMESTAMP_SIZE+self.block_size] = data
+        self.mmap[self.pointer:ptr_end] = STRUCT_Q.pack(timestamp)
+        self.mmap[ptr_end:ptr_end+self.block_size] = data
         self.entries += 1
         # Update entries count
         self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)

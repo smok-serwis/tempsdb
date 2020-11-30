@@ -67,8 +67,11 @@ cdef class Database:
         :type page_size: int
         :return: new series
         :rtype: TimeSeries
+        :raises ValueError: block size was larger than page_size plus a timestamp
         :raises AlreadyExists: series with given name already exists
         """
+        if block_size > page_size + 8:
+            raise ValueError('Invalid block size, pick larger page')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
         cdef TimeSeries series = create_series(os.path.join(self.name, name),
