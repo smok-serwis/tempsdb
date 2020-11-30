@@ -23,7 +23,7 @@ cdef class Chunk:
         readonly bint writable
         object write_lock
 
-    cpdef object iterate_range(self, unsigned long starting_entry, unsigned long stopping_entry)
+    cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
     cpdef void close(self)
     cpdef tuple get_piece_at(self, unsigned int index)
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
@@ -49,4 +49,5 @@ cdef class Chunk:
     cdef unsigned long long get_timestamp_at(self, unsigned int index)
 
 
-cpdef Chunk create_chunk(TimeSeries parent, str path, list data, int page_size)
+cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
+                         bytes data, int page_size)

@@ -27,6 +27,9 @@ cdef class TimeSeries:
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
     cpdef int close_chunks(self) except -1
+    cpdef object iterate_range(self, unsigned long long start, unsigned long long stop)
+    cpdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp)
+
 
 cpdef TimeSeries create_series(str path, unsigned int block_size,
                                int max_entries_per_chunk, int page_size=*)

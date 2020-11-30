@@ -1,3 +1,4 @@
+import itertools
 import shutil
 import threading
 import time
@@ -10,6 +11,10 @@ from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 import os
 
 DEF METADATA_FILE_NAME = 'metadata.txt'
+
+
+
+
 
 cdef class TimeSeries:
     """
@@ -39,9 +44,16 @@ cdef class TimeSeries:
             set files_s = set(files)
             str chunk
         try:
-            metadata = ujson.loads(metadata_s)
+            metadata = ujson.loads(metadata_s)      # raises ValueError
+            # raises KeyError
+            self.block_size = metadata['block_size']
+            self.max_entries_per_chunk = metadata['max_entries_per_chunk']
+            self.last_entry_synced = metadata['last_entry_synced']
+            self.page_size = metadata['page_size']
         except ValueError:
             raise Corruption('Corrupted series')
+        except KeyError:
+            raise Corruption('Could not read metadata item')
 
         self.open_chunks = {}       # tp.Dict[int, Chunk]
 
@@ -57,16 +69,7 @@ cdef class TimeSeries:
                     self.chunks.append(int(chunk))
                 except ValueError:
                     raise Corruption('Detected invalid file "%s"' % (chunk, ))
-
             self.chunks.sort()
-            try:
-                self.block_size = metadata['block_size']
-                self.max_entries_per_chunk = metadata['max_entries_per_chunk']
-                self.last_entry_synced = metadata['last_entry_synced']
-                self.page_size = metadata['page_size']
-            except KeyError:
-                raise Corruption('Could not read metadata item')
-
             self.last_chunk = Chunk(self, os.path.join(self.path, str(max(self.chunks))))
             self.open_chunks[self.last_chunk.min_ts] = self.last_chunk
             self.last_entry_ts = self.last_chunk.max_ts
@@ -88,7 +91,9 @@ cdef class TimeSeries:
             raise DoesNotExist('Invalid chunk!')
         with self.open_lock:
             if name not in self.open_chunks:
-                self.open_chunks[name] = Chunk(self, os.path.join(self.path, str(name)))
+                self.open_chunks[name] = Chunk(self,
+                                               os.path.join(self.path, str(name)),
+                                               self.page_size)
         return self.open_chunks[name]
 
     cpdef void close(self):
@@ -106,6 +111,79 @@ cdef class TimeSeries:
             self.mpm.cancel()
             self.mpm = None
         self.closed = True
+
+    cpdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):
+        """
+        Return the index of chunk that should have given timestamp
+        
+        :param timestamp: timestamp to check, larger than first timestamp,
+            smaller or equal to current timestamp
+        :type timestamp: int
+        :return: name of the starting chunk
+        :rtype: int
+        """
+        cdef:
+            unsigned int lo = 0
+            unsigned int hi = len(self.chunks)
+            unsigned int mid
+        while lo < hi:
+            mid = (lo+hi)//2
+            if self.chunks[mid] < timestamp:
+                lo = mid+1
+            else:
+                hi = mid
+
+        try:
+            if self.chunks[lo] == timestamp:
+                return lo
+            else:
+                return lo-1
+        except IndexError:
+            return len(self.chunks)-1
+
+    cpdef object iterate_range(self, unsigned long long start, unsigned long long stop):
+        """
+        Return an iterator through collected data with given timestamps.
+        
+        :param start: timestamp to start at
+        :type start: int
+        :param stop: timestamp to stop at
+        :type stop: int
+        :return: an iterator with the data
+        :rtype: tp.Iterator[tp.Tuple[int, bytes]]
+        :raises ValueError: start larger than stop
+        """
+        if self.last_chunk is None:
+            return iter([])
+        if start > stop:
+            raise ValueError('start larger than stop')
+        if start < self.chunks[0]:
+            start = self.chunks[0]
+        if stop > self.last_entry_ts:
+            stop = self.last_entry_ts
+
+        cdef:
+            unsigned int ch_start = self.get_index_of_chunk_for(start)
+            unsigned int ch_stop = self.get_index_of_chunk_for(stop)
+            list iterator = []
+            bint is_first
+            bint is_last
+            unsigned int chunk_index
+            Chunk chunk
+
+        for chunk_index in range(ch_start, ch_stop+1):
+            chunk = self.open_chunk(self.chunks[chunk_index])
+            is_first = chunk_index == ch_start
+            is_last = chunk_index == ch_stop
+            if is_first and is_last:
+                return chunk.iterate_indices(chunk.find_left(start), chunk.find_right(stop))
+            elif is_first:
+                iterator.append(chunk.iterate_indices(chunk.find_left(start), chunk.entries))
+            elif is_last:
+                iterator.append(chunk.iterate_indices(0, chunk.find_right(stop)))
+            else:
+                iterator.append(chunk.iterate_indices(0, chunk.entries))
+        return itertools.chain(*iterator)
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
         """
@@ -188,19 +266,17 @@ cdef class TimeSeries:
         if self.closed:
             raise InvalidState('series is closed')
         if len(data) != self.block_size:
-            raise ValueError('Invalid block size')
+            raise ValueError('Invalid block size, was %s should be %s' % (len(data), self.block_size))
         if timestamp <= self.last_entry_ts:
             raise ValueError('Timestamp not larger than previous timestamp')
 
-        with self.lock:
-            if self.last_chunk is None:
+        with self.lock, self.open_lock:
+            # If this is indeed our first chunk, or we've exceeded the limit of entries per chunk
+            if self.last_chunk is None or self.last_chunk.length() >= self.max_entries_per_chunk:
+                # Create a next chunk
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
-                                               [(timestamp, data)], self.page_size)
+                                               timestamp, data, self.page_size)
                 self.open_chunks[timestamp] = self.last_chunk
-                self.chunks.append(timestamp)
-            elif self.last_chunk.length() >= self.max_entries_per_chunk:
-                self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
-                                               [(timestamp, data)], self.page_size)
                 self.chunks.append(timestamp)
             else:
                 self.last_chunk.append(timestamp, data)

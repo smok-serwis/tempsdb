@@ -11,6 +11,7 @@ DEF TIMESTAMP_SIZE = 8
 DEF FOOTER_SIZE = 4
 STRUCT_Q = struct.Struct('<Q')
 STRUCT_L = struct.Struct('<L')
+STRUCT_LQ = struct.Struct('<LQ')
 
 
 cdef class Chunk:
@@ -44,23 +45,23 @@ cdef class Chunk:
         self.file = open(self.path, 'rb+' if self.writable else 'rb')
         try:
             if self.writable:
-                self.mmap = mmap.mmap(self.file.fileno(), self.file_size)
+                self.mmap = mmap.mmap(self.file.fileno(), 0)
             else:
-                self.mmap = mmap.mmap(self.file.fileno(), self.file_size, access=mmap.ACCESS_READ)
+                self.mmap = mmap.mmap(self.file.fileno(), 0, access=mmap.ACCESS_READ)
         except OSError as e:
             self.file.close()
             self.closed = True
             raise Corruption(f'Empty chunk file!')
         try:
-            self.block_size, = STRUCT_L.unpack(self.mmap[:HEADER_SIZE])
+            self.block_size, self.min_ts = STRUCT_LQ.unpack(self.mmap[0:HEADER_SIZE+TIMESTAMP_SIZE])
             self.block_size_plus = self.block_size + TIMESTAMP_SIZE
         except struct.error:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
+
         self.entries, = STRUCT_L.unpack(self.mmap[self.file_size-FOOTER_SIZE:self.file_size])
         self.pointer = self.entries*self.block_size_plus+HEADER_SIZE
         self.max_ts = self.get_timestamp_at(self.entries-1)
-        self.min_ts = self.get_timestamp_at(0)
 
     cpdef unsigned int find_left(self, unsigned long long timestamp):
         """
@@ -161,7 +162,9 @@ cdef class Chunk:
         if self.closed or not self.writable:
             raise InvalidState('chunk is closed')
         if len(data) != self.block_size:
-            raise ValueError('data not equal in length to block size!')
+            raise ValueError('data (%s) not equal in length to block size (%s)!' % (
+                len(data), self.block_size
+            ))
         if timestamp <= self.max_ts:
             raise ValueError('invalid timestamp')
 
@@ -180,13 +183,13 @@ cdef class Chunk:
             self.pointer += self.block_size_plus
         return 0
 
-    cpdef object iterate_range(self, unsigned long starting_entry, unsigned long stopping_entry):
+    cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
         """
-        Return a partial iterator starting at starting_entry and ending at stopping_entry (exclusive)
+        Return a partial iterator starting at starting_entry and ending at stopping_entry (exclusive).
         
-        :param starting_entry: number of starting entry
+        :param starting_entry: index of starting entry
         :type starting_entry: int
-        :param stopping_entry: number of stopping entry
+        :param stopping_entry: index of stopping entry
         :type stopping_entry:
         :return: an iterator
         :rtype: tp.Iterator[tp.Tuple[int, bytes]]
@@ -239,7 +242,8 @@ cdef class Chunk:
         return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]
 
 
-cpdef Chunk create_chunk(TimeSeries parent, str path, list data, int page_size):
+cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
+                         bytes data, int page_size):
     """
     Creates a new chunk on disk
     
@@ -247,9 +251,10 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, list data, int page_size):
     :type parent: TimeSeries
     :param path: path to the new chunk file
     :type path: str
-    :param data: data to write, list of tuple (timestamp, entry to write).
-        Must be nonempty and sorted by timestamp.
-    :type data: tp.List[tp.Tuple[int, bytes]]
+    :param timestamp: timestamp for first entry to contain
+    :type timestamp: int
+    :param data: data of the first entry
+    :type data: bytes
     :param page_size: size of a single page for storage
     :type page_size: int
     :raises ValueError: entries in data were not of equal size, or data was empty or data
@@ -264,28 +269,14 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, list data, int page_size):
     cdef:
         bytes b
         unsigned long long ts
-        unsigned long block_size = len(data[0][1])
+        unsigned long block_size = len(data)
         unsigned long file_size = 0
         unsigned long long last_ts = 0
-        unsigned int entries = len(data)
+        unsigned int entries = 1
         bint first_element = True
-
     file_size += file.write(STRUCT_L.pack(block_size))
-    try:
-        for ts, b in data:
-            if not first_element:
-                if ts <= last_ts:
-                    raise ValueError('Timestamp appeared twice or data was not sorted')
-            if len(b) != block_size:
-                raise ValueError('Block size has entries of not equal length')
-            file_size += file.write(STRUCT_Q.pack(ts))
-            file_size += file.write(b)
-            last_ts = ts
-            first_element = False
-    except ValueError:
-        file.close()
-        os.unlink(path)
-        raise
+    file_size += file.write(STRUCT_Q.pack(timestamp))
+    file_size += file.write(data)
 
     # Pad this thing to page_size
     cdef unsigned long bytes_to_pad = page_size - (file_size % page_size)
@@ -293,9 +284,8 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, list data, int page_size):
 
     # Create a footer at the end
     cdef bytearray footer = bytearray(page_size)
-    footer[-4:] = STRUCT_L.pack(entries)
+    footer[-4:] = b'\x01\x00\x00\x00'   # 1 in little endian
     file.write(footer)
     file.close()
-    print('Finished creating chunk')
     return Chunk(parent, path, page_size)
 
