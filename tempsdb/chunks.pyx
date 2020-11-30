@@ -6,10 +6,10 @@ import mmap
 from .exceptions import Corruption, InvalidState, AlreadyExists
 from .series cimport TimeSeries
 
-STRUCT_L = struct.Struct('<L')
-STRUCT_Q = struct.Struct('<Q')
 DEF HEADER_SIZE = 4
 DEF TIMESTAMP_SIZE = 8
+STRUCT_Q = struct.Struct('<Q')
+STRUCT_L = struct.Struct('<L')
 
 
 cdef class Chunk:
@@ -59,6 +59,58 @@ cdef class Chunk:
         self.entries = (file_size-HEADER_SIZE) // (self.block_size_plus)
         self.max_ts, = STRUCT_Q.unpack(self.mmap[file_size-self.block_size_plus:file_size-self.block_size])
         self.min_ts, = STRUCT_Q.unpack(self.mmap[HEADER_SIZE:HEADER_SIZE+TIMESTAMP_SIZE])
+
+    cpdef unsigned int find_left(self, unsigned long long timestamp):
+        """
+        Return an index i of position such that ts[i] <= timestamp and
+        (timestamp-ts[i]) -> min.
+        
+        Used as bound in searches: you start from this index and finish at 
+        :meth:`~tempsdb.chunks.Chunk.find_right`.
+        
+        :param timestamp: timestamp to look for, must be smaller or equal to largest element
+            in the chunk
+        :type timestamp: int
+        :return: index such that ts[i] <= timestamp and (timestamp-ts[i]) -> min, or length of the 
+            array if timestamp is larger than largest element in this chunk
+        :rtype: int
+        """
+        cdef:
+            unsigned int hi = self.length()
+            unsigned int lo = 0
+            unsigned int mid
+        while lo < hi:
+            mid = (lo+hi)//2
+            if self.get_timestamp_at(mid) < timestamp:
+                lo = mid+1
+            else:
+                hi = mid
+        return lo
+
+    cpdef unsigned int find_right(self, unsigned long long timestamp):
+        """
+        Return an index i of position such that ts[i] > timestamp and
+        (ts[i]-timestamp) -> min
+        
+        Used as bound in searches: you start from 
+        :meth:`~tempsdb.chunks.Chunk.find_right` and finish at this inclusive. 
+        
+        :param timestamp: timestamp to look for
+        :type timestamp: int
+        :return: index such that ts[i] > timestamp and (ts[i]-timestamp) -> min
+        :rtype: int 
+        """
+        cdef:
+            unsigned int hi = self.length()
+            unsigned int lo = 0
+            unsigned int mid
+        while lo < hi:
+            mid = (lo+hi)//2
+            if timestamp < self.get_timestamp_at(mid):
+                hi = mid
+            else:
+                lo = mid+1
+        return lo
 
     def __getitem__(self, index: tp.Union[int, slice]):
         if isinstance(index, slice):
