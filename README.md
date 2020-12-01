@@ -14,6 +14,10 @@ So no variable encoding for you!
 
 # Changelog
 
+## v0.4
+
+* _TBA_
+
 ## v0.3
 
 * added `TimeSeries.get_current_value`
