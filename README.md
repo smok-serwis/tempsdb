@@ -14,6 +14,10 @@ So no variable encoding for you!
 
 # Changelog
 
+## v0.5
+
+* _TBA_
+
 ## v0.4
 
 * can install from sdist now
