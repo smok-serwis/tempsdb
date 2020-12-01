@@ -16,7 +16,7 @@ So no variable encoding for you!
 
 ## v0.4
 
-* _TBA_
+* can install from sdist now
 
 ## v0.3
 
