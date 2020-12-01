@@ -17,6 +17,7 @@ So no variable encoding for you!
 ## v0.3
 
 * added `TimeSeries.get_current_value`
+* added `Database.sync`
 
 ## v0.2
 

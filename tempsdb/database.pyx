@@ -126,6 +126,17 @@ cdef class Database:
                 minimum_ts = candidate_ts
         return minimum_ts
 
+    cpdef int sync(self) except -1:
+        """
+        .. versionadded:: 0.3
+        
+        Synchronize all the data with the disk
+        """
+        cdef TimeSeries series
+        for series in self.open_series.values():
+            if not series.closed:
+                series.sync()
+
     cpdef list get_all_series(self):
         """
         Stream all series available within this database
