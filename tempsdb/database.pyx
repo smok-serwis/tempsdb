@@ -45,7 +45,7 @@ cdef class Database:
                         dd.delete()
                     else:
                         output.append(series)
-        return series
+        return output
 
     cpdef TimeSeries get_series(self, name: str, bint use_descriptor_based_access = False):
         """

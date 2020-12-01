@@ -12,6 +12,17 @@ Embedded Cython library for time series that you need to upload somewhere.
 Stored time series with a 8-bit timestamp and a fixed length of data.
 So no variable encoding for you!
 
+# Installation
+
+```bash
+git clone https://github.com/smok-serwis/tempsdb
+cd tempsdb
+python setup.py install
+```
+
+I'm currently working on installing it via pip.  
+You will need to have both snakehouse and satella installed.
+
 # Changelog
 
 ## v0.4.2
