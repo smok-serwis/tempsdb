@@ -8,6 +8,7 @@ cdef class TimeSeries:
         object lock             # lock to hold while writing
         object open_lock        # lock to hold while opening or closing chunks
         readonly str path
+        readonly str name
         unsigned int max_entries_per_chunk
         readonly unsigned long long last_entry_synced
         readonly unsigned int block_size
@@ -38,5 +39,5 @@ cdef class TimeSeries:
     cdef inline int get_references_for(self, unsigned long long timestamp):
         return self.refs_chunks.get(timestamp, 0)
 
-cpdef TimeSeries create_series(str path, unsigned int block_size,
-                               int max_entries_per_chunk, int page_size=*)
+cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
+                               int max_entries_per_chunk, int page_size=4096):

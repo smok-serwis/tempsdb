@@ -21,9 +21,14 @@ cdef class TimeSeries:
     :ivar last_entry_synced: timestamp of the last synchronized entry (int)
     :ivar block_size: size of the writable block of data (int)
     :ivar path: path to the directory containing the series (str)
+
+    .. versionadded:: 0.2
+
+    :ivar name: name of the series (str)
     """
-    def __init__(self, path: str):
+    def __init__(self, path: str, name: str):
         self.mpm = None
+        self.name = name
         self.lock = threading.RLock()
         self.open_lock = threading.RLock()
         self.refs_chunks = {}
@@ -356,7 +361,7 @@ cdef class TimeSeries:
         shutil.rmtree(self.path)
 
 
-cpdef TimeSeries create_series(str path, unsigned int block_size,
+cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
                                int max_entries_per_chunk, int page_size=4096):
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
@@ -370,4 +375,4 @@ cpdef TimeSeries create_series(str path, unsigned int block_size,
             'page_size': page_size
             }, f_out
         )
-    return TimeSeries(path)
+    return TimeSeries(path, name)

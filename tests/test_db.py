@@ -1,12 +1,11 @@
 import os
-import sys
 import unittest
 
 
 class TestDB(unittest.TestCase):
     def test_write_series(self):
         from tempsdb.series import create_series
-        series = create_series('test3', 10, 4096)
+        series = create_series('test3', 'test3', 10, 4096)
         for i in range(8000):
             series.append(i, b'\x00'*10)
         series.trim(4100)
@@ -17,7 +16,7 @@ class TestDB(unittest.TestCase):
     def test_create_series(self):
         from tempsdb.series import create_series
 
-        series = create_series('test', 1, 10)
+        series = create_series('test', 'test', 1, 10)
         start, ts = 127, 100
         for i in range(20):
             series.append(ts, bytes(bytearray([start])))
@@ -32,7 +31,6 @@ class TestDB(unittest.TestCase):
         self.do_verify_series(series, 0, 1200)
         self.do_verify_series(series, 0, 1800)
         series.close()
-        print(f'after close')
 
     def do_verify_series(self, series, start, stop):
         it = series.iterate_range(start, stop)

@@ -70,7 +70,7 @@ cdef class Database:
                     return self.open_series[name]
                 if not os.path.isdir(path):
                     raise DoesNotExist('series %s does not exist' % (name, ))
-                self.open_series[name] = result = TimeSeries(path)
+                self.open_series[name] = result = TimeSeries(path, name)
                 if self.mpm is not None:
                     result.register_memory_pressure_manager(self.mpm)
         return result
@@ -154,7 +154,7 @@ cdef class Database:
             raise ValueError('Invalid block size, pick larger page')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
-        cdef TimeSeries series = create_series(os.path.join(self.name, name),
+        cdef TimeSeries series = create_series(os.path.join(self.name, name), name,
                                                block_size,
                                                entries_per_chunk, page_size=page_size)
         self.open_series[name] = series
