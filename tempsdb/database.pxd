@@ -15,6 +15,7 @@ cdef class Database:
                                    unsigned long entries_per_chunk,
                                    int page_size=*)
     cpdef list get_open_series(self)
+    cpdef list get_all_series(self)
 
 cpdef Database create_database(str path)
 

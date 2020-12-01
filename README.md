@@ -17,6 +17,7 @@ So no variable encoding for you!
 ## v0.2
 
 * added `get_open_series`
+* added `get_all_series`
 
 ## v0.1
 

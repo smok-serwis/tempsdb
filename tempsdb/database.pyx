@@ -75,6 +75,17 @@ cdef class Database:
                     result.register_memory_pressure_manager(self.mpm)
         return result
 
+    cpdef list get_all_series(self):
+        """
+        Stream all series available within this database
+                
+        .. versionadded:: 0.2
+        
+        :return: a list of series names
+        :rtype: tp.List[str]
+        """
+        return os.listdir(self.path)
+
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,
                                    int page_size=4096):
