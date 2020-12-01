@@ -75,6 +75,19 @@ cdef class Database:
                     result.register_memory_pressure_manager(self.mpm)
         return result
 
+    cpdef int close_all_open_series(self) except -1:
+        """
+        Closes all open series
+                
+        .. versionadded:: 0.2        
+        """
+        cdef TimeSeries series
+        with self.lock:
+            for series in self.open_series.values():
+                series.close()
+            self.open_series = {}
+        return 0
+
     cpdef list get_all_series(self):
         """
         Stream all series available within this database
