@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+tempsdb/__bootstrap__.pyx
 # Distribution / packaging
 .Python
 build/

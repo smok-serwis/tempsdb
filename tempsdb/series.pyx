@@ -23,6 +23,26 @@ cdef class TimeSeries:
 
     :ivar name: name of the series (str)
     """
+    cpdef tuple get_current_value(self):
+        """
+        Return latest value of this series
+        
+        .. versionadded:: 0.3
+                        
+        :return: tuple of (timestamp, value)
+        :rtype: tp.Tuple[int, bytes]
+        :raises ValueError: series has no data
+        """
+        if self.last_chunk is None:
+            raise ValueError('No data in series')
+        cdef:
+            Iterator it = self.iterate_range(self.last_chunk.max_ts, self.last_chunk.max_ts)
+            tuple tpl = it.next()
+        try:
+            return tpl
+        finally:
+            it.close()
+
     def __init__(self, path: str, name: str, use_descriptor_based_access: bool = False):
         self.descriptor_based_access = use_descriptor_based_access
         self.mpm = None

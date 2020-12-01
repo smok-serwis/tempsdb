@@ -19,15 +19,16 @@ def find_pyx(*path) -> tp.List[str]:
 #               Extension('tempsdb.series', ['tempsdb/series.pyx']),
 #               Extension('tempsdb.iterators', ['tempsdb/iterators.pyx'])]
 #
+directives = {'language_level': '3'}
+if 'CI' in os.environ:
+    directives.update(profile=True, linetrace=True)
 
 setup(name='tempsdb',
       version='0.3_a1',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.21', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],
-                        compiler_directives={
-                            'language_level': '3',
-                        }),
+                        compiler_directives=directives),
       # ext_modules=cythonize(extensions,
       #                   gdb_debug=True,
       #                   compiler_directives={

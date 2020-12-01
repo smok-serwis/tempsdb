@@ -1,0 +1,15 @@
+[run]
+branch=1
+plugins = Cython.Coverage
+source=
+  tempsdb
+concurrency=thread
+omit=
+  tests/*
+  .eggs/*
+  setup.py
+  tempsdb/__init__.py
+
+[report]
+include=
+    tempsdb/*

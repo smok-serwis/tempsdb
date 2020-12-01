@@ -10,6 +10,14 @@ class TestDB(unittest.TestCase):
         series = create_series('test3', 'test3', 10, 4096)
         for i in range(8000):
             series.append(i, b'\x00'*10)
+
+        self.assertEqual(series.get_current_value(), (i, b'\x00'*10))
+
+        with series.iterate_range(i, i) as it:
+            lst = list(it)
+            self.assertEqual(len(lst), 1)
+            self.assertEqual(lst[0][0], i)
+
         series.trim(4100)
 
         self.assertEqual(len(os.listdir('test3')), 2)

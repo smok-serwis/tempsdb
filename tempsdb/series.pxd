@@ -37,6 +37,7 @@ cdef class TimeSeries:
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp)
     cpdef int trim(self, unsigned long long timestamp) except -1
     cpdef unsigned long open_chunks_ram_size(self)
+    cpdef tuple get_current_value(self)
 
     cdef inline int get_references_for(self, unsigned long long timestamp):
         return self.refs_chunks.get(timestamp, 0)

@@ -8,6 +8,14 @@ cdef class Iterator:
     """
     Iterator that allows iterating through result.
 
+    Can be used as a context manager:
+
+    >>> with series.iterate_range(0, 5000) as it:
+    >>>     for timestamp, value in it:
+    >>>         ...
+
+    It will close itself automatically.
+
     At most basic this implements an iterator interface, iterating over
     tp.Tuple[int, bytes] - timestamp and data
 
@@ -24,6 +32,12 @@ cdef class Iterator:
         self.closed = False
         self.is_first = False
         self.is_last = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def __del__(self):
         self.close()
