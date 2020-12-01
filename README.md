@@ -11,3 +11,13 @@ Embedded Cython library for time series that you need to upload somewhere.
 
 Stored time series with a 8-bit timestamp and a fixed length of data.
 So no variable encoding for you!
+
+# Changelog
+
+## v0.2
+
+* _TBA_
+
+## v0.1
+
+First release
