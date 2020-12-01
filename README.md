@@ -18,6 +18,8 @@ So no variable encoding for you!
 
 * added `get_open_series`
 * added `get_all_series`
+* added `get_first_entry_for`
+* added `close_all_open_series`
 
 ## v0.1
 

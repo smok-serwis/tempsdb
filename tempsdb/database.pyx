@@ -88,6 +88,38 @@ cdef class Database:
             self.open_series = {}
         return 0
 
+    cpdef unsigned long long get_first_entry_for(self, str name):
+        """
+        Get first timestamp stored in a particular series without opening it
+                        
+        .. versionadded:: 0.2
+        
+        :param name: series name
+        :type name: str
+        :return: first timestamp stored in this series
+        :rtype: int
+        :raises DoesNotExist: series does not exist
+        :raises ValueError: timestamp does not have any data
+        """
+        cdef str path = os.path.join(self.path, name)
+        if not os.path.isdir(path):
+            raise DoesNotExist('series does not exist')
+        cdef:
+            unsigned long long minimum_ts = 0xFFFFFFFFFFFFFFFF
+            str name
+            list files = os.listdir(path)
+            unsigned long long candidate_ts
+        if len(files) == 1:
+            raise ValueError('Timestamp does not have any data')
+        for name in files:
+            try:
+                candidate_ts = int(name)
+            except ValueError:
+                continue
+            if candidate_ts < minimum_ts:
+                minimum_ts = candidate_ts
+        return minimum_ts
+
     cpdef list get_all_series(self):
         """
         Stream all series available within this database

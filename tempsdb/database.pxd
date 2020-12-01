@@ -17,6 +17,7 @@ cdef class Database:
     cpdef list get_open_series(self)
     cpdef list get_all_series(self)
     cpdef int close_all_open_series(self) except -1
+    cpdef unsigned long long get_first_entry_for(self, str name)
 
 cpdef Database create_database(str path)
 
