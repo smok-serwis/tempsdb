@@ -12,10 +12,13 @@ cdef class Database:
     A basic TempsDB object.
 
     :param path: path to the directory with the database
+    :raises DoesNotExist: database does not exist, use `create_database`
 
     :ivar path: path to  the directory with the database (str)
     """
     def __init__(self, path: str):
+        if not os.path.isdir(path):
+            raise DoesNotExist('Database does not exist')
         self.path = path
         self.closed = False
         self.open_series = {}

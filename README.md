@@ -17,6 +17,7 @@ So no variable encoding for you!
 ## v0.4.2
 
 * **bugfix release** fixed `Database.create_series`
+* `Database` constructor will throw if no database is there
 
 ## v0.4.1
 
