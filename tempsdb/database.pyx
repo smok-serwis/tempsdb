@@ -37,7 +37,7 @@ cdef class Database:
             str name
         with self.lock:
             with DictDeleter(self.open_series) as dd:
-                for name, series in dd.items():
+                for series in dd.values():
                     if series.closed:
                         dd.delete()
                     else:

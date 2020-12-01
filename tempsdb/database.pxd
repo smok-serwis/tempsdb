@@ -7,6 +7,7 @@ cdef class Database:
         bint closed
         object lock
         object mpm
+        dict open_series
 
     cpdef int close(self) except -1
     cpdef TimeSeries get_series(self, str name,

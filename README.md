@@ -14,9 +14,9 @@ So no variable encoding for you!
 
 # Changelog
 
-## v0.5
+## v0.4.1
 
-* _TBA_
+* **bugfix release** fixed `get_open_series`
 
 ## v0.4
 
