@@ -14,6 +14,7 @@ cdef class TimeSeries:
         readonly unsigned int block_size
         readonly unsigned long long last_entry_ts
         unsigned int page_size
+        bint descriptor_based_access
         list chunks
         dict refs_chunks        # type: tp.Dict[int, int]
         dict open_chunks        # type: tp.Dict[int, Chunk]
@@ -35,9 +36,11 @@ cdef class TimeSeries:
     cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop)
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp)
     cpdef int trim(self, unsigned long long timestamp) except -1
+    cpdef unsigned long open_chunks_ram_size(self)
 
     cdef inline int get_references_for(self, unsigned long long timestamp):
         return self.refs_chunks.get(timestamp, 0)
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
-                               int max_entries_per_chunk, int page_size=4096):
+                               int max_entries_per_chunk, int page_size=*,
+                               bint use_descriptor_based_access=*)

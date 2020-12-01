@@ -44,12 +44,18 @@ cdef class Database:
                         output.append(series)
         return series
 
-    cpdef TimeSeries get_series(self, name: str):
+    cpdef TimeSeries get_series(self, name: str, bint use_descriptor_based_access = False):
         """
         Load and return an existing series
         
         :param name: name of the series
         :type name: str
+        
+        .. versionadded:: 0.2
+        
+        :param use_descriptor_based_access: whether to use descriptor based access instead of mmap, 
+            default is False
+        :type use_descriptor_based_access: bool 
         :return: a loaded time series
         :rtype: TimeSeries
         :raises DoesNotExist: series does not exist
@@ -70,7 +76,8 @@ cdef class Database:
                     return self.open_series[name]
                 if not os.path.isdir(path):
                     raise DoesNotExist('series %s does not exist' % (name, ))
-                self.open_series[name] = result = TimeSeries(path, name)
+                self.open_series[name] = result = TimeSeries(path, name,
+                                                             use_descriptor_based_access=use_descriptor_based_access)
                 if self.mpm is not None:
                     result.register_memory_pressure_manager(self.mpm)
         return result
@@ -106,7 +113,6 @@ cdef class Database:
             raise DoesNotExist('series does not exist')
         cdef:
             unsigned long long minimum_ts = 0xFFFFFFFFFFFFFFFF
-            str name
             list files = os.listdir(path)
             unsigned long long candidate_ts
         if len(files) == 1:
@@ -133,7 +139,8 @@ cdef class Database:
 
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,
-                                   int page_size=4096):
+                                   int page_size=4096,
+                                   bint use_descriptor_based_access=False):
         """
         Create a new series
         
@@ -143,8 +150,14 @@ cdef class Database:
         :type block_size: int
         :param entries_per_chunk: entries per chunk file
         :type entries_per_chunk: int
-        :param page_size: size of a single page
+        :param page_size: size of a single page. Default is 4096
         :type page_size: int
+            
+        .. versionadded:: 0.2
+        
+        :param use_descriptor_based_access: whether to use descriptor based access instead of mmap.
+            Default is False
+        :type use_descriptor_based_access: bool
         :return: new series
         :rtype: TimeSeries
         :raises ValueError: block size was larger than page_size plus a timestamp
@@ -156,7 +169,8 @@ cdef class Database:
             raise AlreadyExists('Series already exists')
         cdef TimeSeries series = create_series(os.path.join(self.name, name), name,
                                                block_size,
-                                               entries_per_chunk, page_size=page_size)
+                                               entries_per_chunk, page_size=page_size,
+                                               use_descriptor_based_access=use_descriptor_based_access)
         self.open_series[name] = series
         return series
 

@@ -21,6 +21,8 @@ So no variable encoding for you!
 * added `get_first_entry_for`
 * added `close_all_open_series`
 * added `TimeSeries.name`
+* added option to use descriptor based access instead of mmap
+* added `TimeSeries.open_chunks_ram_size`
 
 ## v0.1
 

@@ -10,9 +10,6 @@ import os
 DEF METADATA_FILE_NAME = 'metadata.txt'
 
 
-
-
-
 cdef class TimeSeries:
     """
     This is thread-safe
@@ -26,7 +23,8 @@ cdef class TimeSeries:
 
     :ivar name: name of the series (str)
     """
-    def __init__(self, path: str, name: str):
+    def __init__(self, path: str, name: str, use_descriptor_based_access: bool = False):
+        self.descriptor_based_access = use_descriptor_based_access
         self.mpm = None
         self.name = name
         self.lock = threading.RLock()
@@ -114,7 +112,8 @@ cdef class TimeSeries:
             if name not in self.open_chunks:
                 self.open_chunks[name] = chunk = Chunk(self,
                                                        os.path.join(self.path, str(name)),
-                                                       self.page_size)
+                                                       self.page_size,
+                                                       use_descriptor_access=self.descriptor_based_access)
             else:
                 chunk = self.open_chunks[name]
             self.incref_chunk(name)
@@ -339,7 +338,8 @@ cdef class TimeSeries:
                 if self.last_chunk is not None:
                     self.decref_chunk(self.last_chunk.name())
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
-                                               timestamp, data, self.page_size)
+                                               timestamp, data, self.page_size,
+                                               descriptor_based_access=self.descriptor_based_access)
                 self.open_chunks[timestamp] = self.last_chunk
                 self.incref_chunk(timestamp)
                 self.chunks.append(timestamp)
@@ -360,9 +360,23 @@ cdef class TimeSeries:
         self.close()
         shutil.rmtree(self.path)
 
+    cpdef unsigned long open_chunks_ram_size(self):
+        """
+        .. versionadded:: 0.2
+                
+        :return: how much RAM do the opened chunks consume?
+        :rtype: int
+        """
+        cdef:
+            unsigned long ram = 0
+            Chunk chunk
+        for chunk in self.open_chunks.values():
+            ram += chunk.file_size
+        return ram
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
-                               int max_entries_per_chunk, int page_size=4096):
+                               int max_entries_per_chunk, int page_size=4096,
+                               bint use_descriptor_based_access=False):
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
 

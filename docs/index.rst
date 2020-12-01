@@ -19,6 +19,10 @@ iterators.
 Stored time series with a 8-bit timestamp and a fixed length of data.
 So no variable encoding for you!
 
+.. versionadded:: 0.2
+
+When mmap fails due to memory issues, this falls back to slower fwrite()/fread() implementation.
+You can also manually select the descriptor-based implementation if you want to.
 
 Indices and tables
 ==================

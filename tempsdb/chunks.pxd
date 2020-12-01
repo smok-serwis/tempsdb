@@ -1,6 +1,12 @@
 from .series cimport TimeSeries
 
 
+cdef class AlternativeMMap:
+    cdef:
+        object io
+        unsigned long size
+
+
 cdef class Chunk:
     cdef:
         TimeSeries parent
@@ -25,6 +31,7 @@ cdef class Chunk:
     cpdef unsigned int find_right(self, unsigned long long timestamp)
     cdef int extend(self) except -1
     cpdef int delete(self) except -1
+    cpdef int switch_to_descriptor_based_access(self) except -1
 
     cdef inline unsigned long long name(self):
         """
@@ -44,4 +51,5 @@ cdef class Chunk:
 
 
 cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
-                         bytes data, int page_size)
+                         bytes data, int page_size,
+                         bint descriptor_based_access=*)

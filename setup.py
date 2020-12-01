@@ -21,7 +21,7 @@ def find_pyx(*path) -> tp.List[str]:
 #
 
 setup(name='tempsdb',
-      version='0.2_a6',
+      version='0.2_a7',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.21', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],

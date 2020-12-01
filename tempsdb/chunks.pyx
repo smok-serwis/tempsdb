@@ -1,3 +1,4 @@
+import io
 import os
 import typing as tp
 import struct
@@ -13,17 +14,58 @@ STRUCT_L = struct.Struct('<L')
 STRUCT_LQ = struct.Struct('<LQ')
 
 
+cdef class AlternativeMMap:
+    """
+    An alternative mmap implementation used when mmap cannot allocate due to memory issues
+    """
+    def flush(self):
+        self.io.flush()
+
+    def madvise(self, a, b, c):
+        ...
+
+    def resize(self, file_size: int):
+        self.size = file_size
+
+    def __init__(self, io_file: io.BinaryIO):
+        self.io = io_file
+        self.io.seek(0, 2)
+        self.size = self.io.tell()
+
+    def __getitem__(self, item: slice) -> bytes:
+        cdef:
+            unsigned long start = item.start
+            unsigned long stop = item.stop
+
+        self.io.seek(start, 0)
+        return self.io.read(stop-start)
+
+    def __setitem__(self, key: slice, value: bytes):
+        cdef:
+            unsigned long start = key.start
+
+        self.io.seek(start, 0)
+        self.io.write(value)
+
+    def close(self):
+        pass
+
+
 cdef class Chunk:
     """
     Represents a single chunk of time series.
 
     This also implements an iterator interface, and will iterate with tp.Tuple[int, bytes],
-    as well as a sequence protocol
+    as well as a sequence protocol.
+
+    This will try to mmap opened files, but if mmap fails due to not enough memory this
+    will use descriptor-based access.
 
     :param parent: parent time series
     :type parent: tp.Optional[TimeSeries]
     :param path: path to the chunk file
     :type path: str
+    :param use_descriptor_access: whether to use descriptor based access instead of mmap
 
     :ivar path: path to the chunk (str)
     :ivar min_ts: timestamp of the first entry stored (int)
@@ -32,7 +74,16 @@ cdef class Chunk:
     :ivar entries: amount of entries in this chunk (int)
     :ivar page_size: size of the page (int)
     """
-    def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int):
+    cpdef int switch_to_descriptor_based_access(self) except -1:
+        """
+        Switch self to descriptor-based access instead of mmap
+        """
+        self.mmap.close()
+        self.mmap = AlternativeMMap(self.file)
+        return 0
+
+    def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
+                 use_descriptor_access: bool = False):
         cdef bytes b
         self.file_size = os.path.getsize(path)
         self.page_size = page_size
@@ -40,12 +91,20 @@ cdef class Chunk:
         self.closed = False
         self.path = path
         self.file = open(self.path, 'rb+')
-        try:
-            self.mmap = mmap.mmap(self.file.fileno(), 0)
-        except OSError as e:
-            self.file.close()
-            self.closed = True
-            raise Corruption(f'Empty chunk file!')
+
+        if use_descriptor_access:
+            self.mmap = AlternativeMMap(self.file)
+        else:
+            try:
+                self.mmap = mmap.mmap(self.file.fileno(), 0)
+            except OSError as e:
+                if e.errno == 12:   # Cannot allocate memory
+                    self.mmap = AlternativeMMap(self.file)
+                else:
+                    self.file.close()
+                    self.closed = True
+                    raise Corruption(f'Failed to mmap chunk file: {e}')
+
         try:
             self.block_size, self.min_ts = STRUCT_LQ.unpack(self.mmap[0:HEADER_SIZE+TIMESTAMP_SIZE])
             self.block_size_plus = self.block_size + TIMESTAMP_SIZE
@@ -251,7 +310,7 @@ cdef class Chunk:
 
 
 cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
-                         bytes data, int page_size):
+                         bytes data, int page_size, bint descriptor_based_access=False):
     """
     Creates a new chunk on disk
     
@@ -263,8 +322,11 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
     :type timestamp: int
     :param data: data of the first entry
     :type data: bytes
-    :param page_size: size of a single page for storage
+    :param page_size: size of a single page for storage 
     :type page_size: int
+    :param descriptor_based_access: whether to use descriptor based access instead of mmap. 
+        Default is False
+    :type descriptor_based_access: bool
     :raises ValueError: entries in data were not of equal size, or data was empty or data
         was not sorted by timestamp or same timestamp appeared twice
     :raises AlreadyExists: chunk already exists 
@@ -295,5 +357,5 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
     footer[-4:] = b'\x01\x00\x00\x00'   # 1 in little endian
     file.write(footer)
     file.close()
-    return Chunk(parent, path, page_size)
+    return Chunk(parent, path, page_size, )
 
