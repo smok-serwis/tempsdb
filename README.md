@@ -14,6 +14,10 @@ So no variable encoding for you!
 
 # Changelog
 
+## v0.4.2
+
+* **bugfix release** fixed `Database.create_series`
+
 ## v0.4.1
 
 * **bugfix release** fixed `get_open_series`

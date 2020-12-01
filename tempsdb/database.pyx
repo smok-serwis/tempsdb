@@ -178,7 +178,7 @@ cdef class Database:
             raise ValueError('Invalid block size, pick larger page')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
-        cdef TimeSeries series = create_series(os.path.join(self.name, name), name,
+        cdef TimeSeries series = create_series(os.path.join(self.path, name), name,
                                                block_size,
                                                entries_per_chunk, page_size=page_size,
                                                use_descriptor_based_access=use_descriptor_based_access)
