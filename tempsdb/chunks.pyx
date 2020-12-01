@@ -211,9 +211,7 @@ cdef class Chunk:
             yield self.get_piece_at(i)
 
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
-        cdef int i
-        for i in range(self.entries):
-            yield self.get_piece_at(i)
+        return self._iterate(0, self.entries)
 
     def __len__(self):
         return self.length()

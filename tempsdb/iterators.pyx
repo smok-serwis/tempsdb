@@ -31,11 +31,11 @@ cdef class Iterator:
     cpdef void close(self):
         """
         Close this iterator, release chunks.
-        
+
         It is imperative that you call this, otherwise some chunks might remain in memory.
-        
+
         This is hooked by destructor, but release it manually ASAP.
-        
+
         No-op if iterator is already closed.
         """
         if self.closed:
