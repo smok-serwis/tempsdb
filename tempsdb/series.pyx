@@ -231,7 +231,7 @@ cdef class TimeSeries:
         :param stop: timestamp to stop at
         :type stop: int
         :return: an iterator with the data
-        :rtype: tp.Iterator[tp.Tuple[int, bytes]]
+        :rtype: Iterator
         :raises ValueError: start larger than stop
         """
         if self.last_chunk is None:
