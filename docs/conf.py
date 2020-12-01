@@ -16,11 +16,13 @@
 
 
 # -- Project information -----------------------------------------------------
+import pkg_resources
 
 project = 'tempsdb'
 copyright = '2020, Piotr Maślanka'
 author = 'Piotr Maślanka'
 
+release = pkg_resources.require("tempsdb")[0].version
 
 # -- General configuration ---------------------------------------------------
 

@@ -14,6 +14,7 @@ cdef class Database:
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,
                                    int page_size=*)
+    cpdef list get_open_series(self)
 
 cpdef Database create_database(str path)
 

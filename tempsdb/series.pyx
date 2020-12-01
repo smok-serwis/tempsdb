@@ -276,8 +276,12 @@ cdef class TimeSeries:
         Register a memory pressure manager.
         
         This registers :meth:`~tempsdb.series.TimeSeries.close_chunks` as remaining in severity
-        to be called each 30 minutes.
+        to be called each 30 seconds.
+        
+        No op if already closed
         """
+        if self.closed:
+            return
         self.mpm = mpm.register_on_remaining_in_severity(1, 30)(self.close_chunks)
 
     cpdef int close_chunks(self) except -1:

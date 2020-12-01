@@ -16,7 +16,7 @@ So no variable encoding for you!
 
 ## v0.2
 
-* _TBA_
+* added `get_open_series`
 
 ## v0.1
 

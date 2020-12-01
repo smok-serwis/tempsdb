@@ -1,6 +1,8 @@
 import os
 import threading
 
+from satella.coding import DictDeleter
+
 from tempsdb.exceptions import DoesNotExist, AlreadyExists
 from .series cimport TimeSeries, create_series
 
@@ -19,6 +21,28 @@ cdef class Database:
         self.open_series = {}
         self.lock = threading.Lock()
         self.mpm = None
+
+    cpdef list get_open_series(self):
+        """
+        Return all open series
+        
+        .. versionadded:: 0.2
+        
+        :return: open series
+        :rtype: tp.List[TimeSeries]
+        """
+        cdef:
+            list output = []
+            TimeSeries series
+            str name
+        with self.lock:
+            with DictDeleter(self.open_series) as dd:
+                for name, series in dd.items():
+                    if series.closed:
+                        dd.delete()
+                    else:
+                        output.append(series)
+        return series
 
     cpdef TimeSeries get_series(self, name: str):
         """
@@ -92,8 +116,7 @@ cdef class Database:
         self.mpm = mpm
         cdef TimeSeries series
         for series in self.open_series.values():
-            if not series.closed:
-                series.register_memory_pressure_manager(mpm)
+            series.register_memory_pressure_manager(mpm)    # no-op if already closed
         return 0
 
     def __del__(self):
@@ -106,8 +129,10 @@ cdef class Database:
         if self.closed:
             return 0
         cdef TimeSeries series
-        for series in self.open_series.values():
-            series.close()
+        with self.lock:
+            for series in self.open_series.values():
+                series.close()  # because already closed series won't close themselves
+            self.open_series = {}
         self.closed = True
         return 0
 
