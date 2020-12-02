@@ -29,8 +29,6 @@ cdef class Database:
         """
         Return all open series
         
-        .. versionadded:: 0.2
-        
         :return: open series
         :rtype: tp.List[TimeSeries]
         """
@@ -53,8 +51,6 @@ cdef class Database:
         
         :param name: name of the series
         :type name: str
-        
-        .. versionadded:: 0.2
         
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap, 
             default is False
@@ -88,8 +84,6 @@ cdef class Database:
     cpdef int close_all_open_series(self) except -1:
         """
         Closes all open series
-                
-        .. versionadded:: 0.2        
         """
         cdef TimeSeries series
         with self.lock:
@@ -102,8 +96,6 @@ cdef class Database:
         """
         Get first timestamp stored in a particular series without opening it
                         
-        .. versionadded:: 0.2
-        
         :param name: series name
         :type name: str
         :return: first timestamp stored in this series
@@ -131,8 +123,6 @@ cdef class Database:
 
     cpdef int sync(self) except -1:
         """
-        .. versionadded:: 0.3
-        
         Synchronize all the data with the disk
         """
         cdef TimeSeries series
@@ -144,8 +134,6 @@ cdef class Database:
         """
         Stream all series available within this database
                 
-        .. versionadded:: 0.2
-        
         :return: a list of series names
         :rtype: tp.List[str]
         """
@@ -166,9 +154,6 @@ cdef class Database:
         :type entries_per_chunk: int
         :param page_size: size of a single page. Default is 4096
         :type page_size: int
-            
-        .. versionadded:: 0.2
-        
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap.
             Default is False
         :type use_descriptor_based_access: bool

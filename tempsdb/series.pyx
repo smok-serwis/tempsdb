@@ -19,15 +19,11 @@ cdef class TimeSeries:
     :ivar block_size: size of the writable block of data (int)
     :ivar path: path to the directory containing the series (str)
 
-    .. versionadded:: 0.2
-
     :ivar name: name of the series (str)
     """
     cpdef tuple get_current_value(self):
         """
         Return latest value of this series
-        
-        .. versionadded:: 0.3
                         
         :return: tuple of (timestamp, value)
         :rtype: tp.Tuple[int, bytes]
@@ -37,7 +33,7 @@ cdef class TimeSeries:
             raise ValueError('No data in series')
         cdef:
             Iterator it = self.iterate_range(self.last_chunk.max_ts, self.last_chunk.max_ts)
-            tuple tpl = it.next()
+            tuple tpl = it.next_item()
         try:
             return tpl
         finally:
@@ -381,10 +377,10 @@ cdef class TimeSeries:
         self.close()
         shutil.rmtree(self.path)
 
-    cpdef unsigned long open_chunks_ram_size(self):
+    cpdef unsigned long open_chunks_mmap_size(self):
         """
-        .. versionadded:: 0.2
-                
+        Calculate how much RAM does the mmaped space take
+        
         :return: how much RAM do the opened chunks consume?
         :rtype: int
         """
@@ -392,7 +388,7 @@ cdef class TimeSeries:
             unsigned long ram = 0
             Chunk chunk
         for chunk in self.open_chunks.values():
-            ram += chunk.file_size
+            ram += chunk.get_mmap_size()
         return ram
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,

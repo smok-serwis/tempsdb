@@ -36,7 +36,7 @@ cdef class TimeSeries:
     cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop)
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp)
     cpdef int trim(self, unsigned long long timestamp) except -1
-    cpdef unsigned long open_chunks_ram_size(self)
+    cpdef unsigned long open_chunks_mmap_size(self)
     cpdef tuple get_current_value(self)
 
     cdef inline int get_references_for(self, unsigned long long timestamp):

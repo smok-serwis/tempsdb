@@ -74,6 +74,16 @@ cdef class Chunk:
     :ivar entries: amount of entries in this chunk (int)
     :ivar page_size: size of the page (int)
     """
+    cpdef unsigned long get_mmap_size(self):
+        """
+        :return: how many bytes are mmaped?
+        :rtype: int
+        """
+        if isinstance(self.mmap, AlternativeMMap):
+            return 0
+        else:
+            return self.file_size
+
     cpdef int switch_to_descriptor_based_access(self) except -1:
         """
         Switch self to descriptor-based access instead of mmap
