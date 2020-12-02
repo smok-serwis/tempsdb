@@ -16,7 +16,3 @@ cdef class Iterator:
     cpdef void close(self)
     cdef int get_next(self) except -1
     cpdef tuple next(self)
-
-    @staticmethod
-    cpdef Iterator empty()
-
