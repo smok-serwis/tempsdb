@@ -21,6 +21,14 @@ cdef class Iterator:
 
     When you're done call :meth:`~tempsdb.iterators.Iterator.close` to release the resources.
     """
+    @staticmethod
+    cpdef Iterator empty():
+        """
+        :return: an empty iterator
+        :rtype: Iterator 
+        """
+        return Iterator(None, 0, 0, [])
+
     def __init__(self, parent: TimeSeries, start: int, stop: int, chunks: tp.List[Chunk]):
         self.start = start
         self.stop = stop

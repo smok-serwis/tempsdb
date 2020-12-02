@@ -27,6 +27,7 @@ You will need to have both snakehouse and satella installed.
 
 ## v0.4.2
 
+* empty series will return an Iterator
 * **bugfix release** fixed `Database.create_series`
 * `Database` constructor will throw if no database is there
 

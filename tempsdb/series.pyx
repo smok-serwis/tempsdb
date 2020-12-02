@@ -235,7 +235,7 @@ cdef class TimeSeries:
         :raises ValueError: start larger than stop
         """
         if self.last_chunk is None:
-            return iter([])
+            return Iterator.empty()
         if start > stop:
             raise ValueError('start larger than stop')
         if start < self.chunks[0]:
