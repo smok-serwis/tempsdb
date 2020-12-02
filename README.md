@@ -26,6 +26,10 @@ You will need to have both snakehouse and satella installed.
 
 # Changelog
 
+## v0.4.3
+
+* _TBA_
+
 ## v0.4.2
 
 * empty series will return an Iterator

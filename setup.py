@@ -24,7 +24,7 @@ if 'CI' in os.environ:
     directives.update(profile=True, linetrace=True)
 
 setup(name='tempsdb',
-      version='0.4.2',
+      version='0.4.3_a1',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.21', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],
