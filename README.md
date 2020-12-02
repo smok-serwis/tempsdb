@@ -17,6 +17,7 @@ So no variable encoding for you!
 ```bash
 git clone https://github.com/smok-serwis/tempsdb
 cd tempsdb
+pip install snakehouse satella
 python setup.py install
 ```
 
@@ -30,6 +31,9 @@ You will need to have both snakehouse and satella installed.
 * empty series will return an Iterator
 * **bugfix release** fixed `Database.create_series`
 * `Database` constructor will throw if no database is there
+* changed `Iterator.next` to `Iterator.next_item`, 
+  synce Cython guys said to not implement the method `next`
+  on iterators.
 
 ## v0.4.1
 

@@ -93,12 +93,12 @@ cdef class Iterator:
         return 0
 
     def __next__(self) -> tp.Tuple[int, bytes]:
-        cdef tuple tpl = self.next()
+        tpl = self.next_item()
         if tpl is None:
             raise StopIteration()
         return tpl
 
-    cpdef tuple next(self):
+    cpdef tuple next_item(self):
         """
         Return next element or None, if list was exhausted
         
