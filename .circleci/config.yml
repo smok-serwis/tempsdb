@@ -17,7 +17,7 @@ jobs:
           name: Install necessary modules
       - run:
           command: |
-            sudo coverage run setup.py test
+            sudo python setup.py test
           name: Test
 
 workflows:
