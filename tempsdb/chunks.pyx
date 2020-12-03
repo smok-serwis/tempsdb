@@ -86,8 +86,12 @@ cdef class Chunk:
 
     cpdef int switch_to_descriptor_based_access(self) except -1:
         """
-        Switch self to descriptor-based access instead of mmap
+        Switch self to descriptor-based access instead of mmap.
+        
+        No-op if already in descriptor based mode.
         """
+        if isinstance(self.mmap, AlternativeMMap):
+            return 0
         self.mmap.close()
         self.mmap = AlternativeMMap(self.file)
         return 0

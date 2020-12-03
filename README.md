@@ -28,7 +28,7 @@ You will need to have both snakehouse and satella installed.
 
 ## v0.4.3
 
-* _TBA_
+* added `TimeSeries.disable_mmap`
 
 ## v0.4.2
 
