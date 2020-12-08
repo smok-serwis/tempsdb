@@ -80,10 +80,16 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.4.3
 
+* slightly reduced `metadata.txt` by defaulting `page_size`
+* moved `Chunk`
+* added support for gzipping
+* added `DirectChunk`
 * iterating and writing at the same time from multiple threads
     made safe
 * added `TimeSeries.disable_mmap`
 * `Iterator`'s destructor will emit a warning if you forget to close it explicitly.
+* added option for transparent gzip compression
+    Please note that gzip disables mmap!
 
 ## v0.4.2
 

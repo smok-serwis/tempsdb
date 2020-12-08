@@ -23,6 +23,7 @@ cdef class Database:
     cpdef VarlenSeries create_varlen_series(self, str name, list length_profile,
                                             int size_struct,
                                             unsigned long entries_per_chunk)
+                                   bint use_descriptor_based_access=*)                           int gzip_level=*)
     cpdef list get_open_series(self)
     cpdef list get_all_series(self)
     cpdef int close_all_open_series(self) except -1

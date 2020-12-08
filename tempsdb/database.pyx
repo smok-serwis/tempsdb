@@ -201,7 +201,8 @@ cdef class Database:
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,
                                    int page_size=4096,
-                                   bint use_descriptor_based_access=False):
+                                   bint use_descriptor_based_access=False,
+                                   int gzip_level=0):
         """
         Create a new series
         
@@ -211,6 +212,7 @@ cdef class Database:
         :param page_size: size of a single page. Default is 4096
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap.
             Default is False
+        :param gzip_level: gzip compression level. Default is 0 which means "don't use gzip"
         :return: new series
         :raises ValueError: block size was larger than page_size plus a timestamp
         :raises AlreadyExists: series with given name already exists
@@ -222,7 +224,8 @@ cdef class Database:
         cdef TimeSeries series = create_series(os.path.join(self.path, name), name,
                                                block_size,
                                                entries_per_chunk, page_size=page_size,
-                                               use_descriptor_based_access=use_descriptor_based_access)
+                                               use_descriptor_based_access=use_descriptor_based_access,
+                                               gzip_level=gzip_level)
         self.open_series[name] = series
         return series
 
