@@ -29,6 +29,7 @@ You will need to have both snakehouse and satella installed.
 ## v0.4.4
 
 * more error conditions during mmap will be supported as well
+* ENOMEM will be correctly handled during resize operation
 
 ## v0.4.3
 

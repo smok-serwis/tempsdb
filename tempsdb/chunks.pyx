@@ -217,7 +217,13 @@ cdef class Chunk:
             ba = bytearray(self.page_size)
             ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
             self.file.write(ba)
-            self.mmap.resize(self.file_size)
+            try:
+                self.mmap.resize(self.file_size)
+            except OSError as e:
+                if e.errno == 12:   # ENOMEM
+                    self.switch_to_descriptor_based_access()
+                else:
+                    raise
         finally:
             if self.file_lock_object:
                 self.file_lock_object.release()
