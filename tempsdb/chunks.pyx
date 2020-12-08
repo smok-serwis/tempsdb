@@ -112,7 +112,7 @@ cdef class Chunk:
 
         if use_descriptor_access:
             self.file_lock_object = threading.Lock()
-            self.mmap = AlternativeMMap(self.file)
+            self.mmap = AlternativeMMap(self.file, self.file_lock_object)
         else:
             try:
                 self.mmap = mmap.mmap(self.file.fileno(), 0)
@@ -368,5 +368,5 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
     footer[-4:] = b'\x01\x00\x00\x00'   # 1 in little endian
     file.write(footer)
     file.close()
-    return Chunk(parent, path, page_size, )
+    return Chunk(parent, path, page_size, use_descriptor_access=descriptor_based_access)
 

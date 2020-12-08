@@ -1,4 +1,6 @@
 import typing as tp
+import warnings
+
 from .chunks cimport Chunk
 from .series cimport TimeSeries
 import collections
@@ -14,12 +16,17 @@ cdef class Iterator:
     >>>     for timestamp, value in it:
     >>>         ...
 
-    It will close itself automatically.
+    It will close itself automatically via destructor, if you forget to call close.
 
     At most basic this implements an iterator interface, iterating over
     tp.Tuple[int, bytes] - timestamp and data
 
     When you're done call :meth:`~tempsdb.iterators.Iterator.close` to release the resources.
+
+    .. versionadded:: 0.4.3
+
+    A warning will be emitted in the case that destructor has to call
+    :meth:`~tempsdb.iterators.Iterator.close`.
     """
 
     def __init__(self, parent: TimeSeries, start: int, stop: int, chunks: tp.List[Chunk]):
@@ -41,7 +48,9 @@ cdef class Iterator:
         self.close()
 
     def __del__(self):
-        self.close()
+        if not self.closed:
+            warnings.warn('You forgot to close an Iterator. Please close them explicitly!')
+            self.close()
 
     cpdef void close(self):
         """

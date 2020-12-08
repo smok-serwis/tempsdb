@@ -31,6 +31,7 @@ You will need to have both snakehouse and satella installed.
 * iterating and writing at the same time from multiple threads
     made safe
 * added `TimeSeries.disable_mmap`
+* `Iterator`'s destructor will emit a warning if you forget to close it explicitly.
 
 ## v0.4.2
 
