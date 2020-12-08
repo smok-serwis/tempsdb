@@ -1,5 +1,6 @@
 import io
 import os
+import threading
 import typing as tp
 import struct
 import mmap
@@ -27,25 +28,28 @@ cdef class AlternativeMMap:
     def resize(self, file_size: int):
         self.size = file_size
 
-    def __init__(self, io_file: io.BinaryIO):
+    def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
         self.io.seek(0, 2)
         self.size = self.io.tell()
+        self.file_lock_object = file_lock_object
 
     def __getitem__(self, item: slice) -> bytes:
         cdef:
             unsigned long start = item.start
             unsigned long stop = item.stop
 
-        self.io.seek(start, 0)
-        return self.io.read(stop-start)
+        with self.file_lock_object:
+            self.io.seek(start, 0)
+            return self.io.read(stop-start)
 
     def __setitem__(self, key: slice, value: bytes):
         cdef:
             unsigned long start = key.start
 
-        self.io.seek(start, 0)
-        self.io.write(value)
+        with self.file_lock_object:
+            self.io.seek(start, 0)
+            self.io.write(value)
 
     def close(self):
         pass
@@ -93,7 +97,8 @@ cdef class Chunk:
         if isinstance(self.mmap, AlternativeMMap):
             return 0
         self.mmap.close()
-        self.mmap = AlternativeMMap(self.file)
+        self.file_lock_object = threading.Lock()
+        self.mmap = AlternativeMMap(self.file, self.file_lock_object)
         return 0
 
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
@@ -105,15 +110,18 @@ cdef class Chunk:
         self.closed = False
         self.path = path
         self.file = open(self.path, 'rb+')
+        self.file_lock_object = None
 
         if use_descriptor_access:
+            self.file_lock_object = threading.Lock()
             self.mmap = AlternativeMMap(self.file)
         else:
             try:
                 self.mmap = mmap.mmap(self.file.fileno(), 0)
             except OSError as e:
                 if e.errno == 12:   # Cannot allocate memory
-                    self.mmap = AlternativeMMap(self.file)
+                    self.file_lock_object = threading.Lock()
+                    self.mmap = AlternativeMMap(self.file, self.file_lock_object)
                 else:
                     self.file.close()
                     self.closed = True
@@ -203,12 +211,19 @@ cdef class Chunk:
         """
         Adds PAGE_SIZE bytes to this file
         """
-        self.file_size += self.page_size
-        self.file.seek(0, 2)
-        cdef bytearray ba = bytearray(self.page_size)
-        ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
-        self.file.write(ba)
-        self.mmap.resize(self.file_size)
+        cdef bytearray ba
+        if self.file_lock_object:
+            self.file_lock_object.acquire()
+        try:
+            self.file_size += self.page_size
+            self.file.seek(0, 2)
+            ba = bytearray(self.page_size)
+            ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
+            self.file.write(ba)
+            self.mmap.resize(self.file_size)
+        finally:
+            if self.file_lock_object:
+                self.file_lock_object.release()
 
     cdef unsigned long long get_timestamp_at(self, unsigned int index):
         """

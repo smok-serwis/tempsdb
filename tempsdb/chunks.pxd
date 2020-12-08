@@ -3,7 +3,7 @@ from .series cimport TimeSeries
 
 cdef class AlternativeMMap:
     cdef:
-        object io
+        object io, file_lock_object
         unsigned long size
 
 
@@ -19,7 +19,7 @@ cdef class Chunk:
         unsigned long file_size
         unsigned long pointer       # position to write next entry at
         readonly unsigned long page_size
-        object file, mmap
+        object file, mmap, file_lock_object
         bint closed
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)

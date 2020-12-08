@@ -28,6 +28,8 @@ You will need to have both snakehouse and satella installed.
 
 ## v0.4.3
 
+* iterating and writing at the same time from multiple threads
+    made safe
 * added `TimeSeries.disable_mmap`
 
 ## v0.4.2
