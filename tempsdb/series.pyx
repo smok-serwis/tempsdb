@@ -132,17 +132,16 @@ cdef class TimeSeries:
             raise Corruption('Could not read metadata item')
 
         self.open_chunks = {}       # tp.Dict[int, Chunk]
+        self.chunks = []            # type: tp.List[tp.Tuple[int, bool, bool]] # sorted by ASC
+                                    #: timestamp, is_direct, is_gzip
 
         if not len(files):
             raise Corruption('Empty directory!')
         elif len(files) == 1:
             # empty series
             self.last_chunk = None
-            self.chunks = []
             self.last_entry_ts = 0
         else:
-            self.chunks = []        # type: tp.List[tp.Tuple[int, bool, bool]] # sorted by ASC
-                                    # timestamp, is_direct, is_gzip
             for filename in files:
                 if filename == METADATA_FILE_NAME:
                     continue
@@ -185,7 +184,7 @@ cdef class TimeSeries:
         """
         if self.closed:
             raise InvalidState('Series is closed')
-        if name not in self.chunks:
+        if name not in (v[0] for v in self.chunks):
             raise DoesNotExist('Invalid chunk!')
         cdef Chunk chunk
         with self.open_lock:
@@ -195,7 +194,7 @@ cdef class TimeSeries:
                                         os.path.join(self.path, str(name)),
                                         self.page_size,
                                         use_descriptor_access=True,
-                                        gzip_compression_level=self.gzip_level)
+                                        gzip_compression_level=self.gzip_level if is_gzip else 0)
                 else:
                     chunk = Chunk(self,
                                   os.path.join(self.path, str(name)),
@@ -292,13 +291,13 @@ cdef class TimeSeries:
             unsigned int mid
         while lo < hi:
             mid = (lo+hi)//2
-            if self.chunks[mid] < timestamp:
+            if self.chunks[mid][0] < timestamp:
                 lo = mid+1
             else:
                 hi = mid
 
         try:
-            if self.chunks[lo] == timestamp:
+            if self.chunks[lo][0] == timestamp:
                 return lo
             else:
                 return lo-1
@@ -319,8 +318,8 @@ cdef class TimeSeries:
 
         if start > stop:
             raise ValueError('start larger than stop')
-        if start < self.chunks[0]:
-            start = self.chunks[0]
+        if start < self.chunks[0][0]:
+            start = self.chunks[0][0]
         if stop > self.last_entry_ts:
             stop = self.last_entry_ts
 
@@ -472,7 +471,7 @@ cdef class TimeSeries:
                                                timestamp, data, self.page_size,
                                                descriptor_based_access=is_descriptor,
                                                use_direct_mode=is_descriptor,
-                                               gzip_compresion_level=self.gzip_level)
+                                               gzip_compression_level=self.gzip_level)
                 self.open_chunks[timestamp] = self.last_chunk
                 self.incref_chunk(timestamp)
                 self.chunks.append((timestamp, is_descriptor, bool(self.gzip_level)))

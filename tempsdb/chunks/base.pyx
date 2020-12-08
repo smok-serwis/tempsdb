@@ -1,3 +1,4 @@
+import gzip
 import io
 import os
 import threading
@@ -32,7 +33,10 @@ cdef class AlternativeMMap:
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
-        self.io.seek(0, 2)
+        if isinstance(io_file, gzip.GzipFile):
+            self.size = self.io.size
+        else:
+            self.io.seek(self.file_size, 0)
         self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
@@ -121,7 +125,7 @@ cdef class Chunk:
         return 0
 
     cpdef object open_file(self, str path):
-        self.file = open(self.path, 'rb+')
+        return open(self.path, 'rb+')
 
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
                  use_descriptor_access: bool = False):
@@ -141,7 +145,7 @@ cdef class Chunk:
             try:
                 self.mmap = mmap.mmap(self.file.fileno(), 0)
             except OSError as e:
-                if e.errno == 12:   # Cannot allocate memory
+                if e.errno in (11, 12):   # Cannot allocate memory or memory range exhausted
                     self.file_lock_object = threading.Lock()
                     self.mmap = AlternativeMMap(self.file, self.file_lock_object)
                 else:
@@ -282,8 +286,8 @@ cdef class Chunk:
             self.extend()
         cdef unsigned long long ptr_end = self.pointer + TIMESTAMP_SIZE
         # Append entry
-        self.mmap[self.pointer:ptr_end] = STRUCT_Q.pack(timestamp)
-        self.mmap[ptr_end:ptr_end+self.block_size] = data
+        cdef bytes b = STRUCT_Q.pack(timestamp) + data
+        self.mmap[self.pointer:ptr_end+self.block_size] = b
         self.entries += 1
         # Update entries count
         self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)

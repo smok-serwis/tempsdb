@@ -7,7 +7,6 @@ from distutils.core import setup
 
 from setuptools import Extension
 from snakehouse import Multibuild, build
-from satella.distutils import monkey_patch_parallel_compilation
 
 
 def find_pyx(*path) -> tp.List[str]:
@@ -28,9 +27,9 @@ if 'CI' in os.environ:
 
 
 setup(name='tempsdb',
-      version='0.5a4',
+      version='0.5.0_a1',
       packages=['tempsdb'],
-      install_requires=['satella', 'ujson'],
+      install_requires=['satella>=2.14.21', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],
                         compiler_directives=directives),
       # ext_modules=cythonize(extensions,

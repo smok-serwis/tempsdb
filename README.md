@@ -80,6 +80,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.4.3
 
+* improving handling mmap failures on too low memory
 * slightly reduced `metadata.txt` by defaulting `page_size`
 * moved `Chunk`
 * added support for gzipping

@@ -12,7 +12,7 @@ STRUCT_L = struct.Struct('<L')
 
 cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
                          bytes data, int page_size, bint descriptor_based_access=False,
-                         bint use_direct_mode = False, int gzip_compresion_level=0):
+                         bint use_direct_mode = False, int gzip_compression_level=0):
     """
     Creates a new chunk on disk
     
@@ -25,22 +25,23 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
         Default is False
     :param use_direct_mode: if True, chunk will be created using direct mode, without page
         preallocation
-    :param gzip_compresion_level: gzip compression level. Use 0 to disable compression.
+    :param gzip_compression_level: gzip compression level. Use 0 to disable compression.
     :raises ValueError: entries in data were not of equal size, or data was empty or data
         was not sorted by timestamp or same timestamp appeared twice
     :raises AlreadyExists: chunk already exists 
     """
+    cdef str original_path = path
     if os.path.exists(path):
         raise AlreadyExists('chunk already exists!')
     if not data:
         raise ValueError('Data is empty')
-    if not gzip_compresion_level and use_direct_mode:
+    if not gzip_compression_level and use_direct_mode:
         path = path + '.direct'
-    elif gzip_compresion_level:
+    elif gzip_compression_level:
         path = path + '.gz'
 
-    if gzip_compresion_level:
-        file = gzip.open(path, 'wb', compresslevel=gzip_compresion_level)
+    if gzip_compression_level:
+        file = gzip.open(path, 'wb', compresslevel=gzip_compression_level)
     else:
         file = open(path, 'wb')
     cdef:
@@ -67,13 +68,13 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
         footer[-4:] = b'\x01\x00\x00\x00'   # 1 in little endian
         file.write(footer)
     file.close()
-    if gzip_compresion_level:
-        return DirectChunk(parent, path, page_size, use_descriptor_access=False,
-                           gzip_compresion_level=gzip_compresion_level)
+    if gzip_compression_level:
+        return DirectChunk(parent, original_path, page_size, use_descriptor_access=True,
+                           gzip_compression_level=gzip_compression_level)
     else:
         if use_direct_mode:
-            return DirectChunk(parent, path, page_size,
+            return DirectChunk(parent, original_path, page_size,
                                use_descriptor_access=descriptor_based_access)
         else:
-            return Chunk(parent, path, page_size, use_descriptor_access=descriptor_based_access)
+            return Chunk(parent, original_path, page_size, use_descriptor_access=descriptor_based_access)
 
