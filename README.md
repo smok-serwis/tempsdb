@@ -26,6 +26,10 @@ You will need to have both snakehouse and satella installed.
 
 # Changelog
 
+## v0.4.4
+
+* _TBA_
+
 ## v0.4.3
 
 * iterating and writing at the same time from multiple threads
