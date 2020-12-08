@@ -66,9 +66,7 @@ cdef class Chunk:
     will use descriptor-based access.
 
     :param parent: parent time series
-    :type parent: tp.Optional[TimeSeries]
     :param path: path to the chunk file
-    :type path: str
     :param use_descriptor_access: whether to use descriptor based access instead of mmap
 
     :ivar path: path to the chunk (str)
@@ -152,10 +150,8 @@ cdef class Chunk:
         
         :param timestamp: timestamp to look for, must be smaller or equal to largest element
             in the chunk
-        :type timestamp: int
         :return: index such that ts[i] <= timestamp and (timestamp-ts[i]) -> min, or length of the 
             array if timestamp is larger than largest element in this chunk
-        :rtype: int
         """
         cdef:
             unsigned int hi = self.length()
@@ -178,9 +174,7 @@ cdef class Chunk:
         :meth:`~tempsdb.chunks.Chunk.find_right` and finish at this inclusive. 
         
         :param timestamp: timestamp to look for
-        :type timestamp: int
         :return: index such that ts[i] > timestamp and (ts[i]-timestamp) -> min
-        :rtype: int 
         """
         cdef:
             unsigned int hi = self.length()
@@ -230,9 +224,7 @@ cdef class Chunk:
         Get timestamp at given entry
         
         :param index: index of the entry
-        :type index: int
         :return: timestamp at this entry
-        :rtype: int
         """
         cdef unsigned long offset = HEADER_SIZE+index*self.block_size_plus
         return STRUCT_Q.unpack(self.mmap[offset:offset+TIMESTAMP_SIZE])[0]
@@ -258,9 +250,7 @@ cdef class Chunk:
         :class:`~tempsdb.series.TimeSeries`.
         
         :param timestamp: timestamp of the entry
-        :type timestamp: int
         :param data: data to write
-        :type data: bytes
         :raises InvalidState: chunk is closed
         """
         if self.closed:
@@ -285,9 +275,7 @@ cdef class Chunk:
         Return a partial iterator starting at starting_entry and ending at stopping_entry (exclusive).
         
         :param starting_entry: index of starting entry
-        :type starting_entry: int
         :param stopping_entry: index of stopping entry
-        :type stopping_entry:
         :return: an iterator
         :rtype: tp.Iterator[tp.Tuple[int, bytes]]
         """
@@ -344,18 +332,12 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
     Creates a new chunk on disk
     
     :param parent: parent time series
-    :type parent: TimeSeries
     :param path: path to the new chunk file
-    :type path: str
     :param timestamp: timestamp for first entry to contain
-    :type timestamp: int
     :param data: data of the first entry
-    :type data: bytes
     :param page_size: size of a single page for storage 
-    :type page_size: int
     :param descriptor_based_access: whether to use descriptor based access instead of mmap. 
         Default is False
-    :type descriptor_based_access: bool
     :raises ValueError: entries in data were not of equal size, or data was empty or data
         was not sorted by timestamp or same timestamp appeared twice
     :raises AlreadyExists: chunk already exists 

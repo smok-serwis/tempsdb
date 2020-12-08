@@ -125,9 +125,7 @@ cdef class TimeSeries:
         Acquires a reference to the chunk.
         
         :param name: name of the chunk
-        :type name: int
         :return: chunk
-        :rtype: Chunk
         :raises DoesNotExist: chunk not found
         :raises InvalidState: resource closed
         """
@@ -155,7 +153,6 @@ cdef class TimeSeries:
         on. This will not delete currently opened chunks!
         
         :param timestamp: timestamp to delete entries earlier than
-        :type timestamp: int
         """
         if len(self.chunks) == 1:
             return 0
@@ -207,9 +204,7 @@ cdef class TimeSeries:
         
         :param timestamp: timestamp to check, larger than first timestamp,
             smaller or equal to current timestamp
-        :type timestamp: int
         :return: name of the starting chunk
-        :rtype: int
         """
         cdef:
             unsigned int lo = 0
@@ -235,11 +230,8 @@ cdef class TimeSeries:
         Return an iterator through collected data with given timestamps.
         
         :param start: timestamp to start at
-        :type start: int
         :param stop: timestamp to stop at
-        :type stop: int
         :return: an iterator with the data
-        :rtype: Iterator
         :raises ValueError: start larger than stop
         """
         if self.last_chunk is None:
@@ -270,7 +262,6 @@ cdef class TimeSeries:
         Mark the series as synced up to particular timestamp
         
         :param timestamp: timestamp of the last synced entry
-        :type timestamp: int
         """
         self.last_entry_synced = timestamp
         self.sync_metadata()
@@ -347,9 +338,7 @@ cdef class TimeSeries:
         Append an entry.
         
         :param timestamp: timestamp, must be larger than current last_entry_ts
-        :type timestamp: int
         :param data: data to write
-        :type data: bytes
         :raises ValueError: Timestamp not larger than previous timestamp or invalid block size
         :raises InvalidState: the resource is closed
         """
@@ -393,8 +382,7 @@ cdef class TimeSeries:
         """
         Calculate how much RAM does the mmaped space take
         
-        :return: how much RAM do the opened chunks consume?
-        :rtype: int
+        :return: how much RAM, in bytes, do the opened chunks consume?
         """
         cdef:
             unsigned long ram = 0

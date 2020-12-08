@@ -21,7 +21,8 @@ def find_pyx(*path) -> tp.List[str]:
 #
 directives = {'language_level': '3'}
 if 'CI' in os.environ:
-    directives.update(profile=True, linetrace=True)
+    directives.update(profile=True, linetrace=True, embedsignature=True)
+
 
 setup(name='tempsdb',
       version='0.4.3_a3',

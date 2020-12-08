@@ -50,13 +50,10 @@ cdef class Database:
         Load and return an existing series
         
         :param name: name of the series
-        :type name: str
         
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap, 
             default is False
-        :type use_descriptor_based_access: bool 
         :return: a loaded time series
-        :rtype: TimeSeries
         :raises DoesNotExist: series does not exist
         """
         cdef:
@@ -97,9 +94,7 @@ cdef class Database:
         Get first timestamp stored in a particular series without opening it
                         
         :param name: series name
-        :type name: str
         :return: first timestamp stored in this series
-        :rtype: int
         :raises DoesNotExist: series does not exist
         :raises ValueError: timestamp does not have any data
         """
@@ -147,18 +142,12 @@ cdef class Database:
         Create a new series
         
         :param name: name of the series
-        :type name: str
         :param block_size: size of the data field
-        :type block_size: int
         :param entries_per_chunk: entries per chunk file
-        :type entries_per_chunk: int
         :param page_size: size of a single page. Default is 4096
-        :type page_size: int
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap.
             Default is False
-        :type use_descriptor_based_access: bool
         :return: new series
-        :rtype: TimeSeries
         :raises ValueError: block size was larger than page_size plus a timestamp
         :raises AlreadyExists: series with given name already exists
         """
@@ -211,9 +200,7 @@ cpdef Database create_database(str path):
     Creates a new, empty database
     
     :param path: path where the DB directory will be put
-    :type path: str
     :return: a Database object
-    :rtype: Database
     :raises AlreadyExists: the directory exists
     """
     if os.path.exists(path):
