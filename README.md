@@ -28,7 +28,7 @@ You will need to have both snakehouse and satella installed.
 
 ## v0.4.4
 
-* _TBA_
+* more error conditions during mmap will be supported as well
 
 ## v0.4.3
 

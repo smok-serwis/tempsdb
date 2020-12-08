@@ -30,7 +30,7 @@ cdef class AlternativeMMap:
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
-        self.io.seek(0, 2)
+        self.io.seek(0, io.SEEK_END)
         self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
@@ -117,7 +117,10 @@ cdef class Chunk:
             try:
                 self.mmap = mmap.mmap(self.file.fileno(), 0)
             except OSError as e:
-                if e.errno == 12:   # Cannot allocate memory
+                if e.errno in (11,      # EAGAIN - memory is too low
+                               12,      # ENOMEM - no memory space available
+                               19,      # ENODEV - fs does not support mmapping
+                               75):     # EOVERFLOW - too many pages would have been used
                     self.file_lock_object = threading.Lock()
                     self.mmap = AlternativeMMap(self.file, self.file_lock_object)
                 else:
@@ -210,7 +213,7 @@ cdef class Chunk:
             self.file_lock_object.acquire()
         try:
             self.file_size += self.page_size
-            self.file.seek(0, 2)
+            self.file.seek(0, io.SEEK_END)
             ba = bytearray(self.page_size)
             ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
             self.file.write(ba)
