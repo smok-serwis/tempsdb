@@ -13,7 +13,7 @@ jobs:
       - python/save-cache
       - run:
           command: |
-            sudo pip install satella snakehouse
+            sudo pip install satella>=2.14.23 snakehouse
           name: Install necessary modules
       - run:
           command: |

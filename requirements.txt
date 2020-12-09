@@ -1,4 +1,4 @@
-satella>=2.14.21
+satella>=2.14.23
 ujson
 snakehouse
 six
