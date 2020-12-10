@@ -39,6 +39,7 @@ cdef class TimeSeries:
     cpdef unsigned long open_chunks_mmap_size(self)
     cpdef tuple get_current_value(self)
     cpdef int disable_mmap(self) except -1
+    cpdef int enable_mmap(self) except -1
     cdef inline int get_references_for(self, unsigned long long timestamp):
         return self.refs_chunks.get(timestamp, 0)
 

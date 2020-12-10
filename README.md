@@ -31,6 +31,7 @@ You will need to have both snakehouse and satella installed.
 * more error conditions during mmap will be supported as well
 * ENOMEM will be correctly handled during resize operation
 * added `TimeSeries.descriptor_based_access`
+* added `Chunk.switch_to_mmap_based_access`
 
 ## v0.4.3
 

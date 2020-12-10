@@ -32,6 +32,7 @@ cdef class Chunk:
     cdef int extend(self) except -1
     cpdef int delete(self) except -1
     cpdef int switch_to_descriptor_based_access(self) except -1
+    cpdef int switch_to_mmap_based_access(self) except -1
     cpdef unsigned long get_mmap_size(self)
 
     cdef inline unsigned long long name(self):
