@@ -21,8 +21,20 @@ pip install snakehouse satella
 python setup.py install
 ```
 
-I'm currently working on installing it via pip.  
-You will need to have both snakehouse and satella installed.
+You need both [snakehouse](https://pypi.org/project/snakehouse/1.2.2/)
+and [satella](https://pypi.org/project/satella/) to compile it from the source,
+though wheels for Linux x86_64 Python 3.7 and Python 3.8
+and Linux ARMv7l Python 3.7 and Python 3.8 are available
+on PyPI.
+
+If you're installing it somewhere that you don't need both snakehouse
+and satella installed, compile your own binary wheel with
+
+```
+python setup.py bdist_wheel
+```
+
+Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
