@@ -51,6 +51,18 @@ cdef class TimeSeries:
                 chunk.switch_to_descriptor_based_access()
         return 0
 
+    cpdef int enable_mmap(self) except -1:
+        """
+        Switches to mmap-based file access method for the entire series,
+        and all chunks open inside.
+        """
+        self.descriptor_based_access = False
+        cdef Chunk chunk
+        with self.lock, self.open_lock:
+            for chunk in self.open_chunks.values():
+                chunk.switch_to_mmap_based_access()
+        return 0
+
     def __init__(self, path: str, name: str, use_descriptor_based_access: bool = False):
         self.descriptor_based_access = use_descriptor_based_access
         self.mpm = None
