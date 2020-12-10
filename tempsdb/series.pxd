@@ -14,7 +14,7 @@ cdef class TimeSeries:
         readonly unsigned int block_size
         readonly unsigned long long last_entry_ts
         unsigned int page_size
-        bint descriptor_based_access
+        readonly bint descriptor_based_access
         list chunks
         dict refs_chunks        # type: tp.Dict[int, int]
         dict open_chunks        # type: tp.Dict[int, Chunk]

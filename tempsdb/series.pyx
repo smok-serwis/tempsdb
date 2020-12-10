@@ -18,7 +18,7 @@ cdef class TimeSeries:
     :ivar last_entry_synced: timestamp of the last synchronized entry (int)
     :ivar block_size: size of the writable block of data (int)
     :ivar path: path to the directory containing the series (str)
-
+    :ivar descriptor_based_access: are all chunks using descriptor-based access? (bool)
     :ivar name: name of the series (str)
     """
     cpdef tuple get_current_value(self):
