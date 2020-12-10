@@ -54,7 +54,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.4.5
 
-* _TBA_
+* if page_size is default, it won't be written as part of the metadata
 
 ## v0.4.4
 

@@ -1,13 +1,13 @@
 import shutil
 import threading
-import ujson
-from satella.files import read_in_file
+from satella.json import write_json_to_file, read_json_from_file
 
 from .chunks cimport create_chunk, Chunk
 from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 import os
 
 DEF METADATA_FILE_NAME = 'metadata.txt'
+DEF DEFAULT_PAGE_SIZE=4096
 
 
 cdef class TimeSeries:
@@ -55,6 +55,11 @@ cdef class TimeSeries:
         """
         Switches to mmap-based file access method for the entire series,
         and all chunks open inside.
+        
+        This will try to enable mmap on every chunk, but if mmap fails due to recoverable
+        errors, it will remain in descriptor-based mode.
+        
+        :raises Corruption: mmap failed due to an irrecoverable error
         """
         self.descriptor_based_access = False
         cdef Chunk chunk
@@ -78,22 +83,19 @@ cdef class TimeSeries:
             raise DoesNotExist('Chosen time series does not exist')
 
         cdef:
-            str metadata_s = read_in_file(os.path.join(self.path, METADATA_FILE_NAME),
-                                         'utf-8', 'invalid json')
             dict metadata
             str filename
             list files = os.listdir(self.path)
             unsigned long long last_chunk_name
 
         try:
-            metadata = ujson.loads(metadata_s)      # raises ValueError
-            # raises KeyError
+            metadata = read_json_from_file(os.path.join(self.path, METADATA_FILE_NAME))
             self.block_size = metadata['block_size']
             self.max_entries_per_chunk = metadata['max_entries_per_chunk']
             self.last_entry_synced = metadata['last_entry_synced']
-            self.page_size = metadata['page_size']
-        except ValueError:
-            raise Corruption('Corrupted series')
+            self.page_size = metadata.get('page_size', DEFAULT_PAGE_SIZE)
+        except (OSError, ValueError) as e:
+            raise Corruption('Corrupted series: %s' % (e, ))
         except KeyError:
             raise Corruption('Could not read metadata item')
 
@@ -159,36 +161,37 @@ cdef class TimeSeries:
 
     cpdef int trim(self, unsigned long long timestamp) except -1:
         """
-        Delete all entries earlier than timestamp.
+        Delete all entries earlier than timestamp that are closed.
         
         Note that this will drop entire chunks, so it may be possible that some entries will linger
-        on. This will not delete currently opened chunks!
+        on. 
+        
+        This will affect only closed chunks. Chunks ready to delete that are closed after
+        this will not be deleted, as :meth:`~tempsdb.series.TimeSeries.trim` will need
+        to be called again.
         
         :param timestamp: timestamp to delete entries earlier than
         """
-        if len(self.chunks) == 1:
-            return 0
         cdef:
             unsigned long long chunk_to_delete
             int refs
-        try:
-            with self.open_lock:
-                while len(self.chunks) >= 2 and timestamp > self.chunks[1]:
-                    chunk_to_delete = self.chunks[0]
-                    if chunk_to_delete in self.open_chunks:
-                        refs = self.refs_chunks.get(chunk_to_delete, 0)
-                        if not refs:
-                            self.open_chunks[chunk_to_delete].delete()
+        if len(self.chunks) > 1:
+            try:
+                with self.open_lock:
+                    while len(self.chunks) >= 2 and timestamp > self.chunks[1]:
+                        chunk_to_delete = self.chunks[0]
+                        if chunk_to_delete in self.open_chunks:
+                            refs = self.refs_chunks.get(chunk_to_delete, 0)
+                            if not refs:
+                                self.open_chunks[chunk_to_delete].delete()
+                            else:
+                                # I would delete it, but it's open...
+                                break
                         else:
-                            # I would delete it, but it's open...
-                            return 0
-                    else:
-                        os.unlink(os.path.join(self.path, str(chunk_to_delete)))
-                    del self.chunks[0]
-                else:
-                    return 0
-        except IndexError:
-            return 0
+                            os.unlink(os.path.join(self.path, str(chunk_to_delete)))
+                        del self.chunks[0]
+            except IndexError:
+                pass
         return 0
 
     cpdef void close(self):
@@ -197,18 +200,17 @@ cdef class TimeSeries:
         
         No further operations can be executed on it afterwards.
         """
-        if self.closed:
-            return
         cdef:
             Chunk chunk
             list open_chunks
-        open_chunks = list(self.open_chunks.values())
-        for chunk in open_chunks:
-            chunk.close()
-        if self.mpm is not None:
-            self.mpm.cancel()
-            self.mpm = None
-        self.closed = True
+        if not self.closed:
+            open_chunks = list(self.open_chunks.values())
+            for chunk in open_chunks:
+                chunk.close()
+            if self.mpm is not None:
+                self.mpm.cancel()
+                self.mpm = None
+            self.closed = True
 
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):
         """
@@ -271,7 +273,9 @@ cdef class TimeSeries:
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
         """
-        Mark the series as synced up to particular timestamp
+        Mark the series as synced up to particular timestamp.
+        
+        This will additionally sync the metadata.
         
         :param timestamp: timestamp of the last synced entry
         """
@@ -280,8 +284,12 @@ cdef class TimeSeries:
         return 0
 
     cdef int sync_metadata(self) except -1:
-        with self.lock, open(os.path.join(self.path, METADATA_FILE_NAME), 'w') as f_out:
-            ujson.dump(self.get_metadata(), f_out)
+        """
+        Write the metadata to disk
+        """
+        with self.lock:
+            write_json_to_file(os.path.join(self.path, METADATA_FILE_NAME), self.get_metadata())
+        return 0
 
     cpdef int sync(self) except -1:
         """
@@ -300,12 +308,14 @@ cdef class TimeSeries:
         return 0
 
     cdef dict get_metadata(self):
-        return {
+        cdef dict meta = {
                 'block_size': self.block_size,
                 'max_entries_per_chunk': self.max_entries_per_chunk,
                 'last_entry_synced': self.last_entry_synced,
-                'page_size': self.page_size
             }
+        if self.page_size != DEFAULT_PAGE_SIZE:
+            meta['page_size'] = self.page_size
+        return meta
 
     cdef void register_memory_pressure_manager(self, object mpm):
         """
@@ -389,6 +399,7 @@ cdef class TimeSeries:
             raise InvalidState('series is closed')
         self.close()
         shutil.rmtree(self.path)
+        return 0
 
     cpdef unsigned long open_chunks_mmap_size(self):
         """
@@ -404,18 +415,18 @@ cdef class TimeSeries:
         return ram
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
-                               int max_entries_per_chunk, int page_size=4096,
+                               int max_entries_per_chunk, int page_size=DEFAULT_PAGE_SIZE,
                                bint use_descriptor_based_access=False):
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
 
-    os.mkdir(path)
-    with open(os.path.join(path, METADATA_FILE_NAME), 'w') as f_out:
-        ujson.dump({
+    cdef dict meta = {
             'block_size': block_size,
             'max_entries_per_chunk': max_entries_per_chunk,
-            'last_entry_synced': 0,
-            'page_size': page_size
-            }, f_out
-        )
+            'last_entry_synced': 0
+            }
+    if page_size != DEFAULT_PAGE_SIZE:
+        meta['page_size'] = page_size
+    os.mkdir(path)
+    write_json_to_file(os.path.join(path, METADATA_FILE_NAME), meta)
     return TimeSeries(path, name)

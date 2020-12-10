@@ -1,6 +1,6 @@
 FROM python:3.8
 
-RUN pip install satella snakehouse nose2 wheel ujson coverage
+RUN pip install satella>=2.14.24 snakehouse nose2 wheel ujson coverage
 
 ADD tempsdb /app/tempsdb
 ADD setup.py /app/setup.py

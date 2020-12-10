@@ -91,22 +91,24 @@ cdef class Chunk:
         Switch self to mmap-based access instead of descriptor-based.
         
         No-op if already in mmap mode.
+        
+        :raises Corruption: unable to mmap file due to an unrecoverable error
         """
-        if not isinstance(self.mmap, AlternativeMMap):
-            return 0
-        try:
-            self.mmap = mmap.mmap(self.file.fileno(), 0)
-            self.file_lock_object = None
-        except OSError as e:
-            if e.errno in (11,      # EAGAIN - memory is too low
-                           12,      # ENOMEM - no memory space available
-                           19,      # ENODEV - fs does not support mmapping
-                           75):     # EOVERFLOW - too many pages would have been used
-                pass
-            else:
-                self.file.close()
-                self.closed = True
-                raise Corruption(f'Failed to mmap chunk file: {e}')
+        if isinstance(self.mmap, AlternativeMMap):
+            try:
+                self.mmap = mmap.mmap(self.file.fileno(), 0)
+                self.file_lock_object = None
+            except OSError as e:
+                if e.errno in (11,      # EAGAIN - memory is too low
+                               12,      # ENOMEM - no memory space available
+                               19,      # ENODEV - fs does not support mmapping
+                               75):     # EOVERFLOW - too many pages would have been used
+                    pass
+                else:
+                    self.file.close()
+                    self.closed = True
+                    raise Corruption(f'Failed to mmap chunk file: {e}')
+        return 0
 
     cpdef int switch_to_descriptor_based_access(self) except -1:
         """
