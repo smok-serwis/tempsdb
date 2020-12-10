@@ -24,9 +24,22 @@ python setup.py install
 
 You need both [snakehouse](https://pypi.org/project/snakehouse/1.2.2/)
 and [satella](https://pypi.org/project/satella/) to compile it from the source,
-though wheels for Linux x86_64 Python 3.7 and Python 3.8
-and Linux ARMv7l Python 3.7 and Python 3.8 are available
-on PyPI.
+though binary wheels for:
+ 
+* Linux [manylinux2014]:
+    * x86_64:
+        * Python 3.6
+        * Python 3.7
+        * Python 3.8
+    * armv7l:
+        * Python 3.7
+        * Python 3.8
+* Windows:
+    * x86_64:
+        * Python 3.8
+
+are available. If you need an extra wheel, compile it yourself
+or just drop me an [issue](https://github.com/smok-serwis/tempsdb/issues/new).
 
 If you're installing it somewhere that you don't need both snakehouse
 and satella installed, compile your own binary wheel with
