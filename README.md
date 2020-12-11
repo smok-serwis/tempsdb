@@ -52,10 +52,12 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
-## v0.4.5
+## v0.5
 
 * if page_size is default, it won't be written as part of the metadata
 * added support for per-series metadata
+* added `TimeSeries.append_padded`
+* added variable length series
 
 ## v0.4.4
 

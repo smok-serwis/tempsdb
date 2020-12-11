@@ -32,6 +32,7 @@ cdef class TimeSeries:
     cdef int sync_metadata(self) except -1
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
+    cpdef int append_padded(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
     cpdef int close_chunks(self) except -1
     cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop)

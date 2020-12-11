@@ -372,6 +372,24 @@ cdef class TimeSeries:
                         pass
         return 0
 
+    cpdef int append_padded(self, unsigned long long timestamp, bytes data) except -1:
+        """
+        Same as :meth:`~tempsdb.series.TimeSeries.append` but will accept data shorter
+        than block_size.
+        
+        It will be padded with zeros.
+
+        :param timestamp: timestamp, must be larger than current last_entry_ts
+        :param data: data to write
+        :raises ValueError: Timestamp not larger than previous timestamp or invalid block size
+        :raises InvalidState: the resource is closed
+        """
+        cdef int data_len = len(data)
+        if data_len > self.block_size:
+            raise ValueError('Data too long')
+        data = data + b'\x00'*(self.block_size - data_len)
+        self.append(timestamp, data)
+
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
         Append an entry.

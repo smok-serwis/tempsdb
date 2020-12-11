@@ -206,4 +206,5 @@ cpdef Database create_database(str path):
     if os.path.exists(path):
         raise AlreadyExists('directory already exists')
     os.mkdir(path)
+    os.mkdir(os.path.join(path, 'varlen'))
     return Database(path)
