@@ -8,6 +8,7 @@ Welcome to tempsdb's documentation!
    usage
    exceptions
    chunks
+   varlen
    memory-pressure-manager
 
 This is an append-only embedded time series library written in Cython.

@@ -1,6 +1,8 @@
 import typing as tp
 import shutil
 import threading
+import warnings
+
 from satella.json import write_json_to_file, read_json_from_file
 
 from .chunks cimport create_chunk, Chunk
@@ -13,7 +15,13 @@ DEF DEFAULT_PAGE_SIZE=4096
 
 cdef class TimeSeries:
     """
-    This is thread-safe
+    A single time series. This maps each timestamp (unsigned long long) to a block of data
+    of length block_size.
+
+    When you're done with this, please call
+    :meth:`~tempsdb.series.TimeSeries.close`.
+
+    If you forget to, the destructor will do that instead, and a warning will be emitted.
 
     :ivar last_entry_ts: timestamp of the last entry added or 0 if no entries yet (int)
     :ivar last_entry_synced: timestamp of the last synchronized entry (int)
@@ -196,7 +204,7 @@ cdef class TimeSeries:
                     while len(self.chunks) >= 2 and timestamp > self.chunks[1]:
                         chunk_to_delete = self.chunks[0]
                         if chunk_to_delete in self.open_chunks:
-                            refs = self.refs_chunks.get(chunk_to_delete, 0)
+                            refs = self.get_references_for(chunk_to_delete)
                             if not refs:
                                 self.open_chunks[chunk_to_delete].delete()
                             else:
@@ -209,7 +217,7 @@ cdef class TimeSeries:
                 pass
         return 0
 
-    cpdef void close(self):
+    cpdef int close(self) except -1:
         """
         Close the series.
         
@@ -218,14 +226,16 @@ cdef class TimeSeries:
         cdef:
             Chunk chunk
             list open_chunks
-        if not self.closed:
-            open_chunks = list(self.open_chunks.values())
-            for chunk in open_chunks:
-                chunk.close()
-            if self.mpm is not None:
-                self.mpm.cancel()
-                self.mpm = None
-            self.closed = True
+        if self.closed:
+            return 0
+        open_chunks = list(self.open_chunks.values())
+        for chunk in open_chunks:
+            chunk.close(True)
+        if self.mpm is not None:
+            self.mpm.cancel()
+            self.mpm = None
+        self.closed = True
+        return 0
 
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):
         """
@@ -349,8 +359,12 @@ cdef class TimeSeries:
 
     cpdef int close_chunks(self) except -1:
         """
-        Close all superficially opened chunks.
+        Close all chunks opened by read requests that are not referred to anymore.
+        
+        No-op if closed.
         """
+        if self.closed:
+            return 0
         if self.last_chunk is None:
             return 0
         if len(self.chunks) == 1:
@@ -364,13 +378,31 @@ cdef class TimeSeries:
             for chunk_name in chunks:
                 if chunk_name == last_chunk_name:
                     continue
-                elif not self.refs_chunks.get(chunk_name, 0):
+                elif not self.get_references_for(chunk_name):
                     self.open_chunks[chunk_name].close()
                     try:
                         del self.refs_chunks[chunk_name]
                     except KeyError:
                         pass
         return 0
+
+    cpdef int append_padded(self, unsigned long long timestamp, bytes data) except -1:
+        """
+        Same as :meth:`~tempsdb.series.TimeSeries.append` but will accept data shorter
+        than block_size.
+        
+        It will be padded with zeros.
+
+        :param timestamp: timestamp, must be larger than current last_entry_ts
+        :param data: data to write
+        :raises ValueError: Timestamp not larger than previous timestamp or invalid block size
+        :raises InvalidState: the resource is closed
+        """
+        cdef int data_len = len(data)
+        if data_len > self.block_size:
+            raise ValueError('Data too long')
+        data = data + b'\x00'*(self.block_size - data_len)
+        self.append(timestamp, data)
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
@@ -430,6 +462,13 @@ cdef class TimeSeries:
         for chunk in self.open_chunks.values():
             ram += chunk.get_mmap_size()
         return ram
+
+    def __del__(self):
+        if not self.closed:
+            warnings.warn('You forgot to close TimeSeries. Please explicitly close it when you '
+                          'are done.')
+            self.close()
+
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
                                int max_entries_per_chunk, int page_size=DEFAULT_PAGE_SIZE,

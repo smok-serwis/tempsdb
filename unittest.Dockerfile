@@ -10,7 +10,6 @@ WORKDIR /app
 
 ENV CI=true
 RUN python setup.py build_ext --inplace
-
 ADD tests /app/tests
 
-CMD ["coverage", "run", "-m", "nose2", "-vv"]
+CMD ["nose2", "-vv"]

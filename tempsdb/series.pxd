@@ -25,13 +25,14 @@ cdef class TimeSeries:
     cdef void register_memory_pressure_manager(self, object mpm)
     cpdef int delete(self) except -1
     cdef dict get_metadata(self)
-    cpdef void close(self)
+    cpdef int close(self) except -1
     cdef void incref_chunk(self, unsigned long long name)
     cdef void decref_chunk(self, unsigned long long name)
     cdef Chunk open_chunk(self, unsigned long long name)
     cdef int sync_metadata(self) except -1
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
+    cpdef int append_padded(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
     cpdef int close_chunks(self) except -1
     cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop)
