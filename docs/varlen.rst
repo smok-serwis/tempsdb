@@ -20,12 +20,17 @@ of 5 normal time series created to accomodate it, with length of:
 * 255
 * 255
 
-Each entry is also prefixed by it's length. The size of that field is described by an
-extra parameter called `size_struct`.
+Note that an entry is written to enough series so that it fits. For example, a 8 byte piece of data
+would be written to only to the first series.
+
+Each entry is also prefixed by it's length, so the actual size of the first
+series is larger by that. The size of that field is described by an
+extra parameter called `size_struct`. It represents an unsigned number.
 
 Note that the only valid sizes of `size_struct` are:
 * 1 for maximum length of 255
 * 2 for maximum length of 65535
+* 3 for maximum length of 16777215
 * 4 for maximum length of 4294967295
 
 Accessing them
@@ -36,6 +41,10 @@ Use methods :meth:`tempsdb.database.Database.create_varlen_series` and
 
 
 .. autoclass:: tempsdb.varlen.VarlenSeries
+    :members:
+
+
+.. autoclass:: tempsdb.varlen.VarlenIterator
     :members:
 
 

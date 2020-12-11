@@ -72,7 +72,7 @@ cdef class VarlenEntry:
         :param start: position to start at
         :param stop: position to stop at
         :return: a slice of this entry
-        :raises ValueError: stop was smaller than start
+        :raises ValueError: stop was smaller than start or indices were invalid
         """
         if stop < start:
             raise ValueError('stop smaller than start')
@@ -96,20 +96,26 @@ cdef class VarlenEntry:
             pointer += next_chunk_len
             segment += 1
 
-
         cdef:
             int write_pointer = 0
             int chunk_len = self.parent.get_length_for(segment)
             int len_to_read = self.parent.get_length_for(segment) - start_reading_at
             Chunk chunk = self.chunks[segment]
-        while write_pointer < length:
-            if chunk_len > start_reading_at + length:
-                ... # We end this right here
+            bytes temp_data
+        while write_pointer < length and len(self.chunks) < segment:
+            if chunk_len-start_reading_at >= + (length - write_pointer):
+                # We have all the data that we require
+                b[write_pointer:length] = chunk.get_slice_of_piece_at(self.item_no[segment],
+                                                                      0, length-write_pointer)
+                return bytes(b)
 
-            b[write_pointer:write_pointer+len_to_read] = chunk.get_slice_of_piece_at(self.item_no[segment],
-                                                                                     start_reading_at,
-                                                                                     0)
+            temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], 0, chunk_len)
+            b[write_pointer:write_pointer+chunk_len] = temp_data
+            write_pointer += chunk_len
+            segment += 1
+            start_reading_at = 0
 
+        raise ValueError('invalid indices')
 
     cpdef bytes to_bytes(self):
         """
@@ -135,6 +141,31 @@ cdef class VarlenEntry:
 
     def __len__(self) -> int:
         return self.length()
+
+STRUCT_L = struct.Struct('<L')
+class ThreeByteStruct:
+    __slots__ = ()
+    def pack(self, v: int) -> bytes:
+        return STRUCT_L.pack(v)[0:3]
+
+    def unpack(self, v: bytes) -> tp.Tuple[int]:
+        return STRUCT_L.unpack(v+b'\x00')
+
+
+cdef class VarlenIterator:
+    """
+    A result of a varlen series query
+    """
+    def __init__(self, parent: VarlenSeries, start: int, stop: int):
+        self.parent = parent
+        self.start = start
+        self.stop = stop
+
+    def __next__(self) -> tp.Tuple[int, VarlenEntry]:
+        ...
+
+    def __iter__(self):
+        return self
 
 
 cdef class VarlenSeries:
@@ -170,6 +201,8 @@ cdef class VarlenSeries:
             self.size_struct = struct.Struct('<B')
         elif self.size_field == 2:
             self.size_struct = struct.Struct('<H')
+        elif self.size_field == 3:
+            self.size_struct = ThreeByteStruct()
         elif self.size_field == 4:
             self.size_struct = struct.Struct('<L')
         else:
@@ -286,6 +319,12 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
     """
     Create a variable length series
     
+    :param path: path where the directory will be placed
+    :param name: name of the series
+    :param size_struct: size of the length indicator. Must be one of 1, 2, 3 or 4.
+    :param length_profile: series' length profile
+    :param max_entries_per_chunk: maximum entries per a chunk file
+    :return: newly created VarlenSeries
     :raises AlreadyExists: directory exists at given path
     :raises ValueError: invalid length profile or max_entries_per_chunk or size_struct
     """
@@ -293,7 +332,7 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
         raise AlreadyExists('directory present at paht')
     if not length_profile or not max_entries_per_chunk:
         raise ValueError('invalid parameter')
-    if size_struct not in (1, 2, 4):
+    if not (1 <= size_struct <= 4):
         raise ValueError('invalid size_struct')
 
     os.mkdir(path)

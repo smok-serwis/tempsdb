@@ -29,6 +29,13 @@ cdef class VarlenSeries:
         elif self.size_field == 4:
             return 0xFFFFFFFF
 
+cdef class VarlenIterator:
+    cdef:
+        object parent
+        unsigned long long start
+        unsigned long long stop
+
+
 cdef class VarlenEntry:
     cdef:
         list chunks
