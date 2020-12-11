@@ -1,3 +1,4 @@
+import typing as tp
 import shutil
 import threading
 from satella.json import write_json_to_file, read_json_from_file
@@ -20,6 +21,7 @@ cdef class TimeSeries:
     :ivar path: path to the directory containing the series (str)
     :ivar descriptor_based_access: are all chunks using descriptor-based access? (bool)
     :ivar name: name of the series (str)
+    :ivar metadata: extra data (tp.Optional[dict])
     """
     cpdef tuple get_current_value(self):
         """
@@ -49,6 +51,18 @@ cdef class TimeSeries:
         with self.lock, self.open_lock:
             for chunk in self.open_chunks.values():
                 chunk.switch_to_descriptor_based_access()
+        return 0
+
+    cpdef int set_metadata(self, dict new_meta) except -1:
+        """
+        Set a new value for the :attr:`~tempsdb.series.TimeSeries.metadata` property.
+        
+        This writes the disk.
+        
+        :param new_meta: new value of metadata property
+        """
+        self.metadata = new_meta
+        self.sync_metadata()
         return 0
 
     cpdef int enable_mmap(self) except -1:
@@ -94,6 +108,7 @@ cdef class TimeSeries:
             self.max_entries_per_chunk = metadata['max_entries_per_chunk']
             self.last_entry_synced = metadata['last_entry_synced']
             self.page_size = metadata.get('page_size', DEFAULT_PAGE_SIZE)
+            self.metadata = metadata.get('metadata')
         except (OSError, ValueError) as e:
             raise Corruption('Corrupted series: %s' % (e, ))
         except KeyError:
@@ -315,6 +330,8 @@ cdef class TimeSeries:
             }
         if self.page_size != DEFAULT_PAGE_SIZE:
             meta['page_size'] = self.page_size
+        if self.metadata is not None:
+            meta['metadata'] = self.metadata
         return meta
 
     cdef void register_memory_pressure_manager(self, object mpm):

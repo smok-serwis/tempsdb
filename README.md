@@ -55,6 +55,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 ## v0.4.5
 
 * if page_size is default, it won't be written as part of the metadata
+* added support for per-series metadata
 
 ## v0.4.4
 

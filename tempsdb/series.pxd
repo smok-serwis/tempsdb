@@ -14,6 +14,7 @@ cdef class TimeSeries:
         readonly unsigned int block_size
         readonly unsigned long long last_entry_ts
         unsigned int page_size
+        readonly dict metadata
         readonly bint descriptor_based_access
         list chunks
         dict refs_chunks        # type: tp.Dict[int, int]
@@ -40,6 +41,7 @@ cdef class TimeSeries:
     cpdef tuple get_current_value(self)
     cpdef int disable_mmap(self) except -1
     cpdef int enable_mmap(self) except -1
+    cpdef int set_metadata(self, dict new_meta) except -1
     cdef inline int get_references_for(self, unsigned long long timestamp):
         return self.refs_chunks.get(timestamp, 0)
 
