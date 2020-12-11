@@ -14,6 +14,7 @@ a block size for next series created. If an entry cannot fit in the already crea
 will be created. Note that the last entry of this array will loop forever, so if you for example
 put a 1024 byte data in a varlen series of length profile [10, 255] there will be a total
 of 5 normal time series created to accommodate it, with length of:
+
 * 10
 * 255
 * 255
@@ -28,6 +29,7 @@ series is larger by that. The size of that field is described by an
 extra parameter called `size_struct`. It represents an unsigned number.
 
 Note that the only valid sizes of `size_struct` are:
+
 * 1 for maximum length of 255
 * 2 for maximum length of 65535
 * 3 for maximum length of 16777215
