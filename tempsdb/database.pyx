@@ -1,5 +1,6 @@
 import os
 import threading
+import warnings
 
 from satella.coding import DictDeleter
 
@@ -11,6 +12,11 @@ from .varlen cimport VarlenSeries, create_varlen_series
 cdef class Database:
     """
     A basic TempsDB object.
+
+    After you're done with it, please call
+    :meth:`~tempsdb.database.Database.close`.
+
+    If you forget to, the destructor will do that instead and emit a warning.
 
     :param path: path to the directory with the database
     :raises DoesNotExist: database does not exist, use `create_database`
@@ -236,7 +242,10 @@ cdef class Database:
         return 0
 
     def __del__(self):
-        self.close()
+        if not self.closed:
+            warnings.warn('You forgot the close the Database. Please close it explicitly when you '
+                          'are done.', )
+            self.close()
 
     cpdef int close(self) except -1:
         """

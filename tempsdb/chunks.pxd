@@ -24,6 +24,7 @@ cdef class Chunk:
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
     cpdef int close(self) except -1
+    cpdef unsigned long long get_timestamp_at(self, unsigned int index)
     cdef tuple get_piece_at(self, unsigned int index)
     cpdef bytes get_slice_of_piece_at(self, unsigned int index, int start, int stop)
     cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start)
@@ -51,8 +52,6 @@ cdef class Chunk:
         :rtype: int 
         """
         return self.entries
-
-    cdef unsigned long long get_timestamp_at(self, unsigned int index)
 
 
 cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,

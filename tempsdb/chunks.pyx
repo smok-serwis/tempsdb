@@ -219,6 +219,20 @@ cdef class Chunk:
             unsigned long stopping_index = starting_index + self.block_size_plus + stop
         return self.mmap[starting_index:stopping_index]
 
+    cpdef unsigned long long get_timestamp_at(self, unsigned int index):
+        """
+        Return a timestamp at a particular location
+        
+        Passing an invalid index will result in an undefined behaviour.
+        
+        :param index: index of element
+        :return: the timestamp
+        """
+        cdef:
+            unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
+            unsigned long stopping_index = starting_index + TIMESTAMP_SIZE
+        return STRUCT_Q.unpack(self.mmap[starting_index:stopping_index])[0]
+
     cpdef unsigned int find_left(self, unsigned long long timestamp):
         """
         Return an index i of position such that ts[i] <= timestamp and
@@ -303,16 +317,6 @@ cdef class Chunk:
         finally:
             if self.file_lock_object:
                 self.file_lock_object.release()
-
-    cdef unsigned long long get_timestamp_at(self, unsigned int index):
-        """
-        Get timestamp at given entry
-        
-        :param index: index of the entry
-        :return: timestamp at this entry
-        """
-        cdef unsigned long offset = HEADER_SIZE+index*self.block_size_plus
-        return STRUCT_Q.unpack(self.mmap[offset:offset+TIMESTAMP_SIZE])[0]
 
     cpdef int delete(self) except -1:
         """

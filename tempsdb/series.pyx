@@ -1,6 +1,8 @@
 import typing as tp
 import shutil
 import threading
+import warnings
+
 from satella.json import write_json_to_file, read_json_from_file
 
 from .chunks cimport create_chunk, Chunk
@@ -13,7 +15,13 @@ DEF DEFAULT_PAGE_SIZE=4096
 
 cdef class TimeSeries:
     """
-    This is thread-safe
+    A single time series. This maps each timestamp (unsigned long long) to a block of data
+    of length block_size.
+
+    When you're done with this, please call
+    :meth:`~tempsdb.series.TimeSeries.close`.
+
+    If you forget to, the destructor will do that instead, and a warning will be emitted.
 
     :ivar last_entry_ts: timestamp of the last entry added or 0 if no entries yet (int)
     :ivar last_entry_synced: timestamp of the last synchronized entry (int)
@@ -448,6 +456,13 @@ cdef class TimeSeries:
         for chunk in self.open_chunks.values():
             ram += chunk.get_mmap_size()
         return ram
+
+    def __del__(self):
+        if not self.closed:
+            warnings.warn('You forgot to close TimeSeries. Please explicitly close it when you '
+                          'are done.')
+            self.close()
+
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
                                int max_entries_per_chunk, int page_size=DEFAULT_PAGE_SIZE,

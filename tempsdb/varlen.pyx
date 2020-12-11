@@ -2,9 +2,11 @@ import os
 import shutil
 import typing as tp
 import struct
+import warnings
 
 from .chunks cimport Chunk
 from .exceptions import Corruption, AlreadyExists
+from .iterators cimport Iterator
 from .series cimport TimeSeries, create_series
 
 
@@ -12,31 +14,41 @@ cdef class VarlenEntry:
     """
     An object representing the value.
 
-    It is preferred for an object to exists, instead of copying data.
-    This should make tempsdb far more zero-copy.
+    It is preferred for an proxy to exist, instead of copying data.
+    This serves make tempsdb far more zero-copy, but it's worth it only if your
+    values are routinely longer than 20-40 bytes.
 
     This behaves as a bytes object, in particular it can be sliced, iterated,
     and it's length obtained. It also overloads __bytes__.
+
+    Once :meth:`~tempsdb.varlen.VarlenEntry.to_bytes` is called, it's result will be
+    cached.
     """
     def __init__(self, parent: VarlenSeries, chunks: tp.List[Chunk],
                  item_no: tp.List[int]):
         self.parent = parent
         self.item_no = item_no
         self.chunks = chunks
+        self.data = None        #: cached data, filled in by to_bytes
 
     cpdef unsigned long long timestamp(self):
         """
         :return: timestamp assigned to this entry
         """
-        return self.chunks[0].get_piece_at(self.item_no[0])[0]
+        return self.chunks[0].get_timestamp_at(self.item_no[0])
 
     cpdef int length(self):
         """
         :return: self length
         """
+        if self.data is not None:
+            return len(self.data)
         cdef bytes b = self.chunks[0].get_slice_of_piece_at(self.item_no[0], 0, self.parent.size_field)
         b = b[:self.parent.size_field]
         return self.parent.size_struct.unpack(b)[0]
+
+    def __contains__(self, item: bytes) -> bool:
+        return item in self.to_bytes()
 
     def __getitem__(self, item):
         if isinstance(item, slice):
@@ -56,6 +68,8 @@ cdef class VarlenEntry:
             int pointer = 0
             int segment = 0
             int seg_len = 0
+        if self.data is not None:
+            return self.data[index]
         while pointer < index and segment < len(self.chunks):
             seg_len = self.parent.get_length_for(segment)
             if seg_len+pointer > index:
@@ -78,6 +92,8 @@ cdef class VarlenEntry:
             raise ValueError('stop smaller than start')
         if stop == start:
             return b''
+        if self.data is not None:
+            return self.data[start:stop]
 
         cdef:
             int length = stop-start
@@ -121,6 +137,9 @@ cdef class VarlenEntry:
         """
         :return: value as bytes
         """
+        if self.data is not None:
+            return self.data
+
         cdef:
             int length = self.length()
             bytearray b = bytearray(length)
@@ -137,10 +156,19 @@ cdef class VarlenEntry:
                 b[pointer:pointer+cur_data_len] = cur_data
             pointer += cur_data_len
             segment += 1
-        return bytes(b)
+        if self.data is None:
+            self.data = bytes(b)
+        return self.data
+
+    def __iter__(self):
+        return iter(self.to_bytes())
+
+    def __bytes__(self) -> bytes:
+        return self.to_bytes()
 
     def __len__(self) -> int:
         return self.length()
+
 
 STRUCT_L = struct.Struct('<L')
 class ThreeByteStruct:
@@ -154,18 +182,62 @@ class ThreeByteStruct:
 
 cdef class VarlenIterator:
     """
-    A result of a varlen series query
+    A result of a varlen series query.
+
+    Please close it when you're done.
+    If you forget to do that, a warning will be issued and the destructor will
+    close it automatically.
+
+    :param parent: parent series
+    :param start: started series
+    :param stop: stopped series
+    :param direct_bytes: whether to iterate with bytes values instead of
+        :class:`~tempsdb.varlen.VarlenEntry`. Note that setting this to True
+        will result in a performance drop, since it will copy, but it should
+        be faster if your typical entry is less than 20 bytes.
     """
-    def __init__(self, parent: VarlenSeries, start: int, stop: int):
+    def __init__(self, parent: VarlenSeries, start: int, stop: int,
+                 direct_bytes: bool = False):
         self.parent = parent
         self.start = start
         self.stop = stop
+        self.direct_bytes = direct_bytes
+        self.closed = False
+        self.chunk_positions = []
+        self.iterators = []
+        self.next_timestamps = []
+        cdef:
+            TimeSeries series
+            Iterator iterator
+        for series in self.parent.series:
+            iterator = series.iterate_range(start, stop)
+            iterator.get_next()
+            self.iterators.append(iterator)
+            self.chunk_positions.append(iterator.i)
 
-    def __next__(self) -> tp.Tuple[int, VarlenEntry]:
+
+    def __next__(self) -> tp.Tuple[int, tp.Union[bytes, VarlenEntry]]:
         ...
 
     def __iter__(self):
         return self
+
+    cpdef int close(self) except -1:
+        """
+        Close this iterator and release all the resources
+        """
+        cdef Iterator iterator
+        if not self.closed:
+            self.parent.references -= 1
+            self.closed = True
+            for iterator in self.iterators:
+                iterator.close()
+        return 0
+
+    def __del__(self):
+        if not self.closed:
+            warnings.warn('You forgot to close a VarlenIterator. Please close them explicitly!')
+            self.close()
 
 
 cdef class VarlenSeries:
@@ -187,6 +259,7 @@ cdef class VarlenSeries:
     def __init__(self, path: str, name: str):
         self.closed = False
         self.path = path
+        self.references = 0
         self.mpm = None
         self.name = name
         self.root_series = TimeSeries(os.path.join(path, 'root'), 'root')
@@ -276,7 +349,7 @@ cdef class VarlenSeries:
         self.close()
         shutil.rmtree(self.path)
 
-    cpdef int add_series(self) except -1:
+    cdef int add_series(self) except -1:
         """
         Creates a new series to hold part of ours data 
         
@@ -293,7 +366,7 @@ cdef class VarlenSeries:
         self.series.append(series)
         self.current_maximum_length += new_len
 
-    cpdef int get_length_for(self, int index):
+    cdef int get_length_for(self, int index):
         """
         Get the length of the time series at a particular index.
         
@@ -312,6 +385,21 @@ cdef class VarlenSeries:
         cdef TimeSeries series
         for series in self.series:
             series.close()
+
+    cpdef long long get_maximum_length(self) except -1:
+        """
+        :return: maximum length of an element capable of being stored in this series
+        """
+        if self.size_field == 1:
+            return 0xFF
+        elif self.size_field == 2:
+            return 0xFFFF
+        elif self.size_field == 3:
+            return 0xFFFFFF
+        elif self.size_field == 4:
+            return 0xFFFFFFFF
+        else:
+            raise ValueError('How did this happen?')
 
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,

@@ -16,3 +16,4 @@ cdef class Iterator:
     cpdef void close(self)
     cdef int get_next(self) except -1
     cpdef tuple next_item(self)
+    cdef tuple next_item_pos(self)

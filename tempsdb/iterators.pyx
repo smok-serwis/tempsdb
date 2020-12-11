@@ -23,8 +23,6 @@ cdef class Iterator:
 
     When you're done call :meth:`~tempsdb.iterators.Iterator.close` to release the resources.
 
-    .. versionadded:: 0.4.3
-
     A warning will be emitted in the case that destructor has to call
     :meth:`~tempsdb.iterators.Iterator.close`.
     """
@@ -72,7 +70,9 @@ cdef class Iterator:
 
     cdef int get_next(self) except -1:
         """
-        Fetch next chunk, set i, is_first, is_last and limit appropriately
+        Fetch next chunk, set i, is_first, is_last and limit appropriately.
+        
+        Primes the iterator to do meaningful work.
         """
         if self.current_chunk is not None:
             self.parent.decref_chunk(self.current_chunk.name())
@@ -106,6 +106,22 @@ cdef class Iterator:
         if tpl is None:
             raise StopIteration()
         return tpl
+
+    cdef tuple next_item_pos(self):
+        """
+        :return: the timestamp of next element and a position of it within the current chunk
+        :rtype: tp.Tuple[int, int]
+        """
+        try:
+            if self.current_chunk is None:
+                self.get_next()
+            elif self.i == self.limit:
+                self.get_next()
+            return self.current_chunk.get_timestamp_at(self.i), self.i
+        except StopIteration:
+            return None
+        finally:
+            self.i += 1
 
     cpdef tuple next_item(self):
         """

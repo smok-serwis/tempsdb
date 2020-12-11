@@ -54,6 +54,8 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.5
 
+* both `Database` and `TimeSeries` destructor will close and 
+  emit a warning if the user forgot to
 * if page_size is default, it won't be written as part of the metadata
 * added support for per-series metadata
 * following additions to `TimeSeries`:
@@ -62,9 +64,10 @@ Then copy your resulting wheel and install it via pip on the target system.
 * added variable length series
 * fixed a bug where getting a series that was already closed would TypeError
 * following additions to `Chunk`:
-    * `Chunk.get_slice_of_piece_at`
-    * `Chunk.get_slice_of_piece_starting_at`
-    * `Chunk.get_byte_of_piece`
+    * `get_slice_of_piece_at`
+    * `get_slice_of_piece_starting_at`
+    * `get_byte_of_piece`
+    * `get_timestamp_at`
 * fixed the behaviour of `AlternativeMMaps` when passed a single index to __getitem__ and __setitem__
 
 ## v0.4.4
