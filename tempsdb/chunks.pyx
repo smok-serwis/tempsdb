@@ -34,22 +34,31 @@ cdef class AlternativeMMap:
         self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
-    def __getitem__(self, item: slice) -> bytes:
+    def __getitem__(self, item: tp.Union[int, slice]) -> tp.Union[int, bytes]:
         cdef:
             unsigned long start = item.start
             unsigned long stop = item.stop
-
+            bytes b
         with self.file_lock_object:
-            self.io.seek(start, 0)
-            return self.io.read(stop-start)
+            if isinstance(item, int):
+                self.io.seek(item, 0)
+                b = self.io.read(1)
+                return b[0]
+            else:
+                start = item.start
+                stop = item.stop
+                self.io.seek(start, 0)
+                return self.io.read(stop-start)
 
-    def __setitem__(self, key: slice, value: bytes):
+    def __setitem__(self, key: tp.Union[int, slice], value: tp.Union[int, bytes]) -> None:
         cdef:
             unsigned long start = key.start
-
-        with self.file_lock_object:
-            self.io.seek(start, 0)
-            self.io.write(value)
+        if isinstance(key, int):
+            self[key:key+1] = bytes([value])
+        else:
+            with self.file_lock_object:
+                self.io.seek(start, 0)
+                self.io.write(value)
 
     def close(self):
         pass
@@ -166,6 +175,49 @@ cdef class Chunk:
         if self.pointer >= self.page_size:
             # Inform the OS that we don't need the header anymore
             self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
+
+    cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1:
+        """
+        Return a particular byte of given element at given index.
+        
+        When index is negative, or larger than block_size, the behaviour is undefined
+        
+        :param index: index of the element
+        :param byte_index: index of the byte
+        :return: value of the byte
+        :raises ValueError: index too large
+        """
+        if index > self.entries:
+            raise ValueError('index too large')
+        cdef:
+            unsigned long offset = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + byte_index
+        return self.mmap[offset]
+
+    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start):
+        """
+        Return a slice of data from given element starting at given index to the end
+        
+        :param index: index of the element
+        :param start: starting index
+        :return: a byte slice
+        """
+        return self.get_slice_of_piece_at(index, start, self.block_size)
+
+    cpdef bytes get_slice_of_piece_at(self, unsigned int index, int start, int stop):
+        """
+        Return a slice of data from given element
+        
+        :param index: index of the element
+        :param start: starting offset of data
+        :param stop: stopping offset of data
+        :return: a byte slice
+        """
+        if index >= self.entries:
+            raise IndexError('Index too large')
+        cdef:
+            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + start
+            unsigned long stopping_index = starting_index + self.block_size_plus + stop
+        return self.mmap[starting_index:stopping_index]
 
     cpdef unsigned int find_left(self, unsigned long long timestamp):
         """

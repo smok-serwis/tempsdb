@@ -5,6 +5,7 @@ from satella.coding import DictDeleter
 
 from tempsdb.exceptions import DoesNotExist, AlreadyExists
 from .series cimport TimeSeries, create_series
+from .varlen cimport VarlenSeries, create_varlen_series
 
 
 cdef class Database:
@@ -22,6 +23,7 @@ cdef class Database:
         self.path = path
         self.closed = False
         self.open_series = {}
+        self.open_varlen_series = {}
         self.lock = threading.Lock()
         self.mpm = None
 
@@ -68,7 +70,7 @@ cdef class Database:
                 if name in self.open_series:
                     if self.open_series[name].closed:
                         del self.open_series[name]
-                        return self.open_series(name)
+                        return self.get_series(name)
                     return self.open_series[name]
                 if not os.path.isdir(path):
                     raise DoesNotExist('series %s does not exist' % (name, ))
@@ -82,11 +84,16 @@ cdef class Database:
         """
         Closes all open series
         """
-        cdef TimeSeries series
+        cdef:
+            TimeSeries series
+            VarlenSeries v_series
         with self.lock:
             for series in self.open_series.values():
                 series.close()
             self.open_series = {}
+            for v_series in self.open_varlen_series.values():
+                v_series.close()
+            self.open_varlen_series = {}
         return 0
 
     cpdef unsigned long long get_first_entry_for(self, str name):
@@ -133,6 +140,57 @@ cdef class Database:
         :rtype: tp.List[str]
         """
         return os.listdir(self.path)
+
+    cpdef VarlenSeries create_varlen_series(self, str name, list length_profile,
+                                            int size_struct,
+                                            unsigned long entries_per_chunk):
+        """
+        Create a new variable length series
+        
+        :param name: name of the series
+        :param length_profile: list of lengths of subsequent chunks
+        :param size_struct: how many bytes will be used to store length?
+            Valid entries are 1, 2 and 4
+        :param entries_per_chunk: entries per chunk file
+        :return: new variable length series
+        :raises AlreadyExists: series with given name already exists
+        """
+        if os.path.isdir(os.path.join(self.path, 'varlen', name)):
+            raise AlreadyExists('Series already exists')
+        cdef VarlenSeries series = create_varlen_series(os.path.join(self.path, name), name,
+                                                        size_struct,
+                                                        length_profile,
+                                                        entries_per_chunk)
+        self.open_varlen_series[name] = series
+        return series
+
+
+    cpdef VarlenSeries get_varlen_series(self, str name):
+        """
+        Load and return an existing variable length series
+        
+        :param name: name of the series
+        
+        :return: a loaded varlen series
+        :raises DoesNotExist: series does not exist
+        """
+        if name in self.open_varlen_series:
+            result = self.open_varlen_series[name]
+        else:
+            path = os.path.join(self.path, 'varlen', name)
+            with self.lock:
+                # Check a second time due to the lock
+                if name in self.open_varlen_series:
+                    if self.open_varlen_series[name].closed:
+                        del self.open_varlen_series[name]
+                        return self.get_varlen_series(name)
+                    return self.open_varlen_series[name]
+                if not os.path.isdir(path):
+                    raise DoesNotExist('series %s does not exist' % (name, ))
+                self.open_varlen_series[name] = result = VarlenSeries(path, name)
+                if self.mpm is not None:
+                    result.register_memory_pressure_manager(self.mpm)
+        return result
 
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,

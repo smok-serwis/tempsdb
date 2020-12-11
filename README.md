@@ -56,8 +56,16 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 * if page_size is default, it won't be written as part of the metadata
 * added support for per-series metadata
-* added `TimeSeries.append_padded`
+* following additions to `TimeSeries`:
+    * added `append_padded`
+    * added metadata support, `metadata` property and `set_metadata` call
 * added variable length series
+* fixed a bug where getting a series that was already closed would TypeError
+* following additions to `Chunk`:
+    * `Chunk.get_slice_of_piece_at`
+    * `Chunk.get_slice_of_piece_starting_at`
+    * `Chunk.get_byte_of_piece`
+* fixed the behaviour of `AlternativeMMaps` when passed a single index to __getitem__ and __setitem__
 
 ## v0.4.4
 
