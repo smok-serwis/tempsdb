@@ -4,7 +4,9 @@ import threading
 import typing as tp
 import struct
 import mmap
-from .exceptions import Corruption, InvalidState, AlreadyExists
+import warnings
+
+from .exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
 from .series cimport TimeSeries
 
 DEF HEADER_SIZE = 4
@@ -132,6 +134,17 @@ cdef class Chunk:
         self.mmap = AlternativeMMap(self.file, self.file_lock_object)
         return 0
 
+    cdef void incref(self):
+        if self.parent is not None:
+            self.parent.incref_chunk(self.min_ts)
+
+    cdef int decref(self) except -1:
+        if self.parent is not None:
+            self.parent.decref_chunk(self.min_ts)
+            if self.parent.refs_chunks[self.name()] < 0:
+                raise ValueError('reference of chunk fell below zero!')
+        return 0
+
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
                  use_descriptor_access: bool = False):
         cdef bytes b
@@ -216,7 +229,7 @@ cdef class Chunk:
             raise IndexError('Index too large')
         cdef:
             unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + start
-            unsigned long stopping_index = starting_index + self.block_size_plus + stop
+            unsigned long stopping_index = starting_index + stop
         return self.mmap[starting_index:stopping_index]
 
     cpdef unsigned long long get_timestamp_at(self, unsigned int index):
@@ -381,22 +394,46 @@ cdef class Chunk:
     def __len__(self):
         return self.length()
 
-    cpdef int close(self) except -1:
+    cpdef int close(self, bint force=False) except -1:
         """
         Close the chunk and close the allocated resources
+        
+        :param force: whether to close the chunk even if it's open somewhere
+        :raises StillOpen: this chunk has a parent attached and the parent
+            says that this chunk is still being referred to
         """
         if self.closed:
             return 0
+        cdef unsigned long long name = self.name()
         if self.parent:
             with self.parent.open_lock:
-                del self.parent.open_chunks[self.name()]
+                if not force and self.parent.refs_chunks.get(name, 0) > 0:
+                    raise StillOpen('this chunk is opened')
+                del self.parent.refs_chunks[name]
+                del self.parent.open_chunks[name]
         self.parent = None
         self.mmap.close()
         self.file.close()
         return 0
 
-    def __del__(self):
+    def __del__(self) -> None:
+        if self.closed:
+            return
+        warnings.warn('You forgot to close a Chunk')
         self.close()
+
+    cpdef bytes get_value_at(self, unsigned int index):
+        """
+        Return only the value at a particular index, numbered from 0
+        
+        :return: value at given index
+        """
+        if index >= self.entries:
+            raise IndexError('Index too large')
+        cdef:
+            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus
+            unsigned long stopping_index = starting_index + self.block_size
+        return self.mmap[starting_index:stopping_index]
 
     cdef tuple get_piece_at(self, unsigned int index):
         """

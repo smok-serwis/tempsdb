@@ -13,7 +13,7 @@ cdef class Iterator:
         bint closed
         Chunk current_chunk
 
-    cpdef void close(self)
+    cpdef int close(self) except -1
     cdef int get_next(self) except -1
     cpdef tuple next_item(self)
     cdef tuple next_item_pos(self)

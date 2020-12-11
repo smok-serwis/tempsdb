@@ -10,8 +10,8 @@
 
 Embedded Cython library for time series that you need to upload somewhere.
 
-Stored time series with a 8-bit timestamp and a fixed length of data.
-So no variable encoding for you!
+Stored time series with a 8-bit timestamp and a data, which can be of
+fixed length or variable.
 
 # Installation
 
@@ -54,7 +54,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.5
 
-* both `Database` and `TimeSeries` destructor will close and 
+* both `Database`, `TimeSeries` and `Chunk` destructor will close and 
   emit a warning if the user forgot to
 * if page_size is default, it won't be written as part of the metadata
 * added support for per-series metadata
@@ -69,6 +69,8 @@ Then copy your resulting wheel and install it via pip on the target system.
     * `get_byte_of_piece`
     * `get_timestamp_at`
 * fixed the behaviour of `AlternativeMMaps` when passed a single index to __getitem__ and __setitem__
+* added `StillOpen` exception, chunk won't allow to close itself if it has any
+  remaining references
 
 ## v0.4.4
 

@@ -14,3 +14,5 @@ The exceptions that inherit from it are:
 .. autoclass:: tempsdb.exceptions.InvalidState
 
 .. autoclass:: tempsdb.exceptions.AlreadyExists
+
+.. autoclass:: tempsdb.exceptions.StillOpen

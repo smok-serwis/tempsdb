@@ -1,7 +1,7 @@
 Variable length series
 ======================
 
-Version 0.5 added support for variable length series.
+.. versionadded:: 0.5
 
 How does it work?
 -----------------
@@ -13,7 +13,7 @@ For each series you specify so-called length profile. It is a list of ints, each
 a block size for next series created. If an entry cannot fit in the already created series, a new one
 will be created. Note that the last entry of this array will loop forever, so if you for example
 put a 1024 byte data in a varlen series of length profile [10, 255] there will be a total
-of 5 normal time series created to accomodate it, with length of:
+of 5 normal time series created to accommodate it, with length of:
 * 10
 * 255
 * 255
@@ -32,6 +32,9 @@ Note that the only valid sizes of `size_struct` are:
 * 2 for maximum length of 65535
 * 3 for maximum length of 16777215
 * 4 for maximum length of 4294967295
+
+Also note that variable length series live in a different namespace than standard
+time series, so you can name them the same.
 
 Accessing them
 --------------

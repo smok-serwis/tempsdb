@@ -17,3 +17,7 @@ class InvalidState(TempsDBError):
 class AlreadyExists(TempsDBError):
     """Provided object already exists"""
     ...
+
+class StillOpen(TempsDBError):
+    """This resource has outstanding references and cannot be closed"""
+    ...

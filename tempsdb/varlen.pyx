@@ -5,7 +5,7 @@ import struct
 import warnings
 
 from .chunks cimport Chunk
-from .exceptions import Corruption, AlreadyExists
+from .exceptions import Corruption, AlreadyExists, StillOpen
 from .iterators cimport Iterator
 from .series cimport TimeSeries, create_series
 
@@ -19,7 +19,10 @@ cdef class VarlenEntry:
     values are routinely longer than 20-40 bytes.
 
     This behaves as a bytes object, in particular it can be sliced, iterated,
-    and it's length obtained. It also overloads __bytes__.
+    and it's length obtained. It also overloads __bytes__. It's also directly comparable
+    and hashable, and boolable.
+
+    This acquires a reference to the chunk it refers, and releases it upon destruction.
 
     Once :meth:`~tempsdb.varlen.VarlenEntry.to_bytes` is called, it's result will be
     cached.
@@ -28,7 +31,12 @@ cdef class VarlenEntry:
                  item_no: tp.List[int]):
         self.parent = parent
         self.item_no = item_no
-        self.chunks = chunks
+        cdef Chunk chunk
+        self.chunks = []
+        for chunk in chunks:
+            if chunk is not None:
+                chunk.incref()
+                self.chunks.append(chunk)
         self.data = None        #: cached data, filled in by to_bytes
         self.len = -1
 
@@ -45,15 +53,11 @@ cdef class VarlenEntry:
         if self.data is not None:
             return self.data.startswith(v)
 
-        if self.len > -1:
-            if len(v) > self.len:
-                return False
-        else:
-            if len(v) > self.length():
-                return False
+        if len(v) > self.length():
+            return False
 
-        cdef bytes b = self.slice(0, self.length)
-        return self.length == v
+        cdef bytes b = self.slice(0, self.len)
+        return b == v
 
     cpdef bint endswith(self, bytes v):
         """
@@ -80,6 +84,18 @@ cdef class VarlenEntry:
         cdef bytes b = self.slice(self.len-len_v, self.len)
         return b == v
 
+    def __gt__(self, other) -> bool:
+        return self.to_bytes() > other
+
+    def __le__(self, other) -> bool:
+        return self.to_bytes() < other
+
+    def __eq__(self, other) -> bool:
+        return self.to_bytes() == other
+
+    def __hash__(self) -> bool:
+        return hash(self.to_bytes())
+
     def __bool__(self) -> bool:
         if self.data is not None:
             return bool(self.data)
@@ -98,14 +114,14 @@ cdef class VarlenEntry:
         if self.len > -1:
             return self.len
         cdef bytes b = self.chunks[0].get_slice_of_piece_at(self.item_no[0], 0, self.parent.size_field)
-        b = b[:self.parent.size_field]
+        assert len(b) == self.parent.size_field, 'Invalid slice!'
         self.len = self.parent.size_struct.unpack(b)[0]
         return self.len
 
     def __contains__(self, item: bytes) -> bool:
         return item in self.to_bytes()
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: tp.Union[int, slice]) -> tp.Union[int, bytes]:
         if isinstance(item, slice):
             return self.slice(item.start, item.stop)
         else:
@@ -123,15 +139,17 @@ cdef class VarlenEntry:
             int pointer = 0
             int segment = 0
             int seg_len = 0
+            int offset = self.parent.size_field
         if self.data is not None:
             return self.data[index]
         while pointer < index and segment < len(self.chunks):
             seg_len = self.parent.get_length_for(segment)
             if seg_len+pointer > index:
                 return self.chunks[segment].get_byte_of_piece(self.item_no[segment],
-                                                              index-pointer)
+                                                              offset+index-pointer)
             pointer += seg_len
             segment += 1
+            offset = 0
         raise ValueError('Index too large')
 
     cpdef bytes slice(self, int start, int stop):
@@ -173,11 +191,12 @@ cdef class VarlenEntry:
             int len_to_read = self.parent.get_length_for(segment) - start_reading_at
             Chunk chunk = self.chunks[segment]
             bytes temp_data
+            int offset = self.parent.size_field
         while write_pointer < length and len(self.chunks) < segment:
             if chunk_len-start_reading_at >= + (length - write_pointer):
                 # We have all the data that we require
                 b[write_pointer:length] = chunk.get_slice_of_piece_at(self.item_no[segment],
-                                                                      0, length-write_pointer)
+                                                                      offset, offset+length-write_pointer)
                 return bytes(b)
 
             temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], 0, chunk_len)
@@ -185,6 +204,7 @@ cdef class VarlenEntry:
             write_pointer += chunk_len
             segment += 1
             start_reading_at = 0
+            offset = 0
 
         raise ValueError('invalid indices')
 
@@ -202,17 +222,19 @@ cdef class VarlenEntry:
             int segment = 0
             bytes cur_data
             int cur_data_len
-        while pointer < length:
-            cur_data = self.chunks[segment].get_piece_at(self.item_no[segment])[1]
-            cur_data_len = len(cur_data)
+            int offset = self.parent.size_field
+        while pointer < length and segment < len(self.chunks):
+            cur_data = self.chunks[segment].get_value_at(self.item_no[segment])
+            cur_data_len = self.parent.get_length_for(segment)
             if cur_data_len > length-pointer:
-                b[pointer:length] = cur_data[:cur_data_len-(length-pointer)]
-            else:
-                b[pointer:pointer+cur_data_len] = cur_data
+                b[pointer:length] = cur_data[offset:length-pointer+offset]
+                break
+            b[pointer:pointer+cur_data_len] = cur_data[offset:cur_data_len+offset]
             pointer += cur_data_len
             segment += 1
-        if self.data is None:
-            self.data = bytes(b)
+            offset = 0
+            first_segment = False
+        self.data = bytes(b)
         self.len = length
         return self.data
 
@@ -224,6 +246,25 @@ cdef class VarlenEntry:
 
     def __len__(self) -> int:
         return self.length()
+
+    cpdef int close(self) except -1:
+        """
+        Close this object and release all the references.
+        
+        It is not necessary to call, since the destructor will call this.
+        .. warning:: Do not let your VarlenEntries outlive the iterator itself!
+            It will be impossible to close the iterator.
+        """
+        cdef Chunk chunk
+        if self.chunks is None:
+            return 0
+        for chunk in self.chunks:
+            chunk.decref()
+        self.chunks = None
+        return 0
+
+    def __del__(self) -> None:
+        self.close()
 
 
 STRUCT_L = struct.Struct('<L')
@@ -240,7 +281,10 @@ cdef class VarlenIterator:
     """
     A result of a varlen series query.
 
-    Please close it when you're done.
+    This iterator will close itself when completed. If you break out of it's
+    iteration, please close it youself via
+    :meth:`~tempsdb.varlen.VarlenIterator.close`
+
     If you forget to do that, a warning will be issued and the destructor will
     close it automatically.
 
@@ -259,21 +303,83 @@ cdef class VarlenIterator:
         self.stop = stop
         self.direct_bytes = direct_bytes
         self.closed = False
-        self.chunk_positions = []
+        cdef int amount_series = len(self.parent.series)
+        self.positions = [None] * amount_series
+        self.chunks = [None] * amount_series
+        self.timestamps = [None] * amount_series
         self.iterators = []
-        self.next_timestamps = []
         cdef:
             TimeSeries series
             Iterator iterator
-        for series in self.parent.series:
-            iterator = series.iterate_range(start, stop)
-            iterator.get_next()
+            Chunk chunk
+            unsigned int pos
+            unsigned long long ts
+            tuple tpl
+            int i
+        for i in range(amount_series):
+            iterator = self.parent.series[i].iterate_range(start, stop)
             self.iterators.append(iterator)
-            self.chunk_positions.append(iterator.i)
+        for i in range(amount_series):
+            iterator = self.iterators[i]
+            self.advance_series(i, True)
 
+    cdef int advance_series(self, int index, bint force) except -1:
+        cdef:
+            Iterator iterator = self.iterators[index]
+            tuple tpl
+            Chunk old_chunk, chunk
+        if iterator is None and not force:
+            return 0
 
-    def __next__(self) -> tp.Tuple[int, tp.Union[bytes, VarlenEntry]]:
-        ...
+        tpl = iterator.next_item_pos()
+        if tpl is None:
+            self.timestamps[index] = None
+            self.positions[index] = None
+            old_chunk = self.chunks[index]
+            if old_chunk is not None:
+                old_chunk.decref()
+            self.chunks[index] = None
+            iterator.close()
+            self.iterators[index] = None
+        else:
+            ts, pos, chunk = tpl
+            self.timestamps[index] = ts
+            self.positions[index] = pos
+            self.chunks[index] = chunk
+        return 0
+
+    cpdef VarlenEntry get_next(self):
+        """
+        Return next element of the iterator, or None if no more available.
+        """
+        if self.timestamps[0] is None:
+            return None
+        cdef:
+            unsigned long long ts = self.timestamps[0]
+            list chunks = []
+            list positions = []
+            int i
+
+        for i in range(len(self.chunks)):
+            if self.timestamps[i] is None:
+                break
+            elif self.timestamps[i] == ts:
+                chunks.append(self.chunks[i])
+                positions.append(self.positions[i])
+                self.advance_series(i, False)
+
+        return VarlenEntry(self.parent, chunks, positions)
+
+    def __next__(self):
+        cdef VarlenEntry varlen_entry = self.get_next()
+        if varlen_entry is None:
+            self.close()
+            raise StopIteration('iterator exhausted')
+        else:
+            if self.direct_bytes:
+                return varlen_entry.timestamp(), varlen_entry.to_bytes()
+            else:
+                return varlen_entry.timestamp(), varlen_entry
 
     def __iter__(self):
         return self
@@ -281,13 +387,22 @@ cdef class VarlenIterator:
     cpdef int close(self) except -1:
         """
         Close this iterator and release all the resources
+        
+        No-op if already closed.
         """
-        cdef Iterator iterator
-        if not self.closed:
-            self.parent.references -= 1
-            self.closed = True
-            for iterator in self.iterators:
+        cdef:
+            Iterator iterator
+            Chunk chunk
+        if self.closed:
+            return 0
+        self.closed = True
+        for iterator in self.iterators:
+            if iterator is not None:
                 iterator.close()
+        for chunk in self.chunks:
+            if chunk is not None:
+                chunk.decref()
+        self.parent.references -= 1
         return 0
 
     def __del__(self):
@@ -311,6 +426,13 @@ cdef class VarlenSeries:
         cdef TimeSeries series
         for series in self.series:
             series.register_memory_pressure_manager(mpm)
+
+    cpdef VarlenIterator iterate_range(self, unsigned long long start, unsigned long long stop,
+                                       bint direct_bytes=False):
+        """
+        Return an iterator with the data
+        """
+        return VarlenIterator(self, start, stop, direct_bytes=direct_bytes)
 
     def __init__(self, path: str, name: str):
         self.closed = False
@@ -360,6 +482,22 @@ cdef class VarlenSeries:
             self.series.append(TimeSeries(os.path.join(path, dir_name), dir_name))
 
         self.current_maximum_length = tot_length
+
+    cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
+        """
+        Mark the series as synchronized up to particular period
+        
+        :param timestamp: timestamp of synchronization
+        """
+        self.root_series.mark_synced_up_to(timestamp)
+        return 0
+
+    @property
+    def last_entry_synced(self) -> int:
+        """
+        :return: timestamp of the last entry synchronized. Starting value is 0
+        """
+        return self.root_series.last_entry_synced
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
@@ -432,15 +570,34 @@ cdef class VarlenSeries:
 
     cpdef int close(self) except -1:
         """
-        Close this series
+        Close this series.
+        
+        No-op if already closed.
+        
+        :raises StillOpen: some references are being held
         """
         if self.closed:
             return 0
+
+        if self.references:
+            raise StillOpen('still some iterators around')
 
         self.closed = True
         cdef TimeSeries series
         for series in self.series:
             series.close()
+        return 0
+
+    cpdef int trim(self, unsigned long long timestamp) except -1:
+        """
+        Try to delete all entries younger than timestamp
+        
+        :param timestamp: timestamp that separates alive entries from the dead
+        """
+        cdef TimeSeries series
+        for series in self.series:
+            series.trim(timestamp)
+        return 0
 
     cpdef long long get_maximum_length(self) except -1:
         """

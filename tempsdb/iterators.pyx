@@ -50,7 +50,7 @@ cdef class Iterator:
             warnings.warn('You forgot to close an Iterator. Please close them explicitly!')
             self.close()
 
-    cpdef void close(self):
+    cpdef int close(self) except -1:
         """
         Close this iterator, release chunks.
 
@@ -61,12 +61,13 @@ cdef class Iterator:
         No-op if iterator is already closed.
         """
         if self.closed:
-            return
+            return 0
         self.closed = True
         cdef Chunk chunk
         for chunk in self.chunks:
-            self.parent.decref_chunk(chunk.name())
+            chunk.decref()
         self.chunks = None
+        return 0
 
     cdef int get_next(self) except -1:
         """
@@ -109,15 +110,19 @@ cdef class Iterator:
 
     cdef tuple next_item_pos(self):
         """
-        :return: the timestamp of next element and a position of it within the current chunk
-        :rtype: tp.Tuple[int, int]
+        Note that this increases the chunk reference count.
+        
+        :return: the timestamp of next element and a position of it within the current chunk,
+            along with that chunk
+        :rtype: tp.Tuple[int, int, Chunk]
         """
         try:
             if self.current_chunk is None:
                 self.get_next()
             elif self.i == self.limit:
                 self.get_next()
-            return self.current_chunk.get_timestamp_at(self.i), self.i
+            self.current_chunk.incref()
+            return self.current_chunk.get_timestamp_at(self.i), self.i, self.current_chunk
         except StopIteration:
             return None
         finally:

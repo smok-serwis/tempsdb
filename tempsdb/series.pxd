@@ -25,7 +25,7 @@ cdef class TimeSeries:
     cdef void register_memory_pressure_manager(self, object mpm)
     cpdef int delete(self) except -1
     cdef dict get_metadata(self)
-    cpdef void close(self)
+    cpdef int close(self) except -1
     cdef void incref_chunk(self, unsigned long long name)
     cdef void decref_chunk(self, unsigned long long name)
     cdef Chunk open_chunk(self, unsigned long long name)

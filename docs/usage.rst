@@ -1,6 +1,8 @@
 How this does work?
 ===================
 
+.. note:: This is about fixed length data time series.
+
 Data is stored in so called chunks. A chunk's last page can be actively appended to, or a chunk
 is immutable.
 

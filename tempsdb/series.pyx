@@ -217,7 +217,7 @@ cdef class TimeSeries:
                 pass
         return 0
 
-    cpdef void close(self):
+    cpdef int close(self) except -1:
         """
         Close the series.
         
@@ -226,14 +226,16 @@ cdef class TimeSeries:
         cdef:
             Chunk chunk
             list open_chunks
-        if not self.closed:
-            open_chunks = list(self.open_chunks.values())
-            for chunk in open_chunks:
-                chunk.close()
-            if self.mpm is not None:
-                self.mpm.cancel()
-                self.mpm = None
-            self.closed = True
+        if self.closed:
+            return 0
+        open_chunks = list(self.open_chunks.values())
+        for chunk in open_chunks:
+            chunk.close(True)
+        if self.mpm is not None:
+            self.mpm.cancel()
+            self.mpm = None
+        self.closed = True
+        return 0
 
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):
         """
@@ -357,8 +359,12 @@ cdef class TimeSeries:
 
     cpdef int close_chunks(self) except -1:
         """
-        Close all superficially opened chunks.
+        Close all chunks opened by read requests that are not referred to anymore.
+        
+        No-op if closed.
         """
+        if self.closed:
+            return 0
         if self.last_chunk is None:
             return 0
         if len(self.chunks) == 1:
