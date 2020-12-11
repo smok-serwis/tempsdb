@@ -140,8 +140,8 @@ cdef class Chunk:
 
     cdef int decref(self) except -1:
         if self.parent is not None:
-            self.parent.decref_chunk(self.min_ts)
-            if self.parent.refs_chunks[self.name()] < 0:
+            self.parent.decref_chunk(self.name())
+            if self.parent.get_references_for(self.name()) < 0:
                 raise ValueError('reference of chunk fell below zero!')
         return 0
 
@@ -407,7 +407,7 @@ cdef class Chunk:
         cdef unsigned long long name = self.name()
         if self.parent:
             with self.parent.open_lock:
-                if not force and self.parent.refs_chunks.get(name, 0) > 0:
+                if not force and self.parent.get_references_for(name) > 0:
                     raise StillOpen('this chunk is opened')
                 del self.parent.refs_chunks[name]
                 del self.parent.open_chunks[name]

@@ -204,7 +204,7 @@ cdef class TimeSeries:
                     while len(self.chunks) >= 2 and timestamp > self.chunks[1]:
                         chunk_to_delete = self.chunks[0]
                         if chunk_to_delete in self.open_chunks:
-                            refs = self.refs_chunks.get(chunk_to_delete, 0)
+                            refs = self.get_references_for(chunk_to_delete)
                             if not refs:
                                 self.open_chunks[chunk_to_delete].delete()
                             else:
@@ -378,7 +378,7 @@ cdef class TimeSeries:
             for chunk_name in chunks:
                 if chunk_name == last_chunk_name:
                     continue
-                elif not self.refs_chunks.get(chunk_name, 0):
+                elif not self.get_references_for(chunk_name):
                     self.open_chunks[chunk_name].close()
                     try:
                         del self.refs_chunks[chunk_name]
