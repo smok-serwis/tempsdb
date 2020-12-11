@@ -44,12 +44,15 @@ cdef class VarlenEntry:
         list item_no
         VarlenSeries parent
         bytes data
+        long len
 
     cpdef int length(self)
     cpdef bytes to_bytes(self)
     cpdef unsigned long long timestamp(self)
     cpdef bytes slice(self, int start, int stop)
     cpdef int get_byte_at(self, int index) except -1
+    cpdef bint endswith(self, bytes v)
+    cpdef bint startswith(self, bytes v)
 
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,

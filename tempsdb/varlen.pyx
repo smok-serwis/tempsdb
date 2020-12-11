@@ -30,6 +30,60 @@ cdef class VarlenEntry:
         self.item_no = item_no
         self.chunks = chunks
         self.data = None        #: cached data, filled in by to_bytes
+        self.len = -1
+
+    cpdef bint startswith(self, bytes v):
+        """
+        Check whether this sequence starts with provided bytes.
+        
+        This will run faster than `bytes(v).startswith(b'test')` since it will
+        fetch only the required amount of bytes.
+
+        :param v: bytes to check
+        :return: whether the sequence starts with provided bytes
+        """
+        if self.data is not None:
+            return self.data.startswith(v)
+
+        if self.len > -1:
+            if len(v) > self.len:
+                return False
+        else:
+            if len(v) > self.length():
+                return False
+
+        cdef bytes b = self.slice(0, self.length)
+        return self.length == v
+
+    cpdef bint endswith(self, bytes v):
+        """
+        Check whether this sequence ends with provided bytes.
+        
+        This will run faster than `bytes(v).endswith(b'test')` since it will
+        fetch only the required amount of bytes.
+        
+        :param v: bytes to check
+        :return: whether the sequence ends with provided bytes
+        """
+        if self.data is not None:
+            return self.data.endswith(v)
+
+        cdef int len_v = len(v)
+
+        if self.len > -1:
+            if len_v > self.len:
+                return False
+        else:
+            if len_v > self.length():
+                return False
+
+        cdef bytes b = self.slice(self.len-len_v, self.len)
+        return b == v
+
+    def __bool__(self) -> bool:
+        if self.data is not None:
+            return bool(self.data)
+        return bool(self.length())
 
     cpdef unsigned long long timestamp(self):
         """
@@ -41,11 +95,12 @@ cdef class VarlenEntry:
         """
         :return: self length
         """
-        if self.data is not None:
-            return len(self.data)
+        if self.len > -1:
+            return self.len
         cdef bytes b = self.chunks[0].get_slice_of_piece_at(self.item_no[0], 0, self.parent.size_field)
         b = b[:self.parent.size_field]
-        return self.parent.size_struct.unpack(b)[0]
+        self.len = self.parent.size_struct.unpack(b)[0]
+        return self.len
 
     def __contains__(self, item: bytes) -> bool:
         return item in self.to_bytes()
@@ -158,6 +213,7 @@ cdef class VarlenEntry:
             segment += 1
         if self.data is None:
             self.data = bytes(b)
+        self.len = length
         return self.data
 
     def __iter__(self):
