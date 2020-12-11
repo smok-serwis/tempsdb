@@ -252,8 +252,9 @@ cdef class VarlenEntry:
         Close this object and release all the references.
         
         It is not necessary to call, since the destructor will call this.
-        .. warning:: Do not let your VarlenEntries outlive the iterator itself!
-            It will be impossible to close the iterator.
+        
+        Do not let your VarlenEntries outlive the iterator itself!
+        It will be impossible to close the iterator.
         """
         cdef Chunk chunk
         if self.chunks is None:

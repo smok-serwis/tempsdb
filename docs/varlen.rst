@@ -1,6 +1,9 @@
 Variable length series
 ======================
 
+.. _Variable length:
+
+
 .. versionadded:: 0.5
 
 How does it work?

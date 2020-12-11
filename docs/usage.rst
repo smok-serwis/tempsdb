@@ -1,7 +1,8 @@
 How this does work?
 ===================
 
-.. note:: This is about fixed length data time series.
+.. note:: This is about fixed length data time series. For the page about
+    time series, see the :ref:`proper page<Variable length>`.
 
 Data is stored in so called chunks. A chunk's last page can be actively appended to, or a chunk
 is immutable.
