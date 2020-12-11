@@ -32,7 +32,6 @@ though binary wheels for:
         * Python 3.7
         * Python 3.8
     * armv7l:
-        * Python 3.7
         * Python 3.8
 * Windows:
     * x86_64:
