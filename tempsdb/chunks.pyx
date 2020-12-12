@@ -27,7 +27,7 @@ cdef class AlternativeMMap:
     def madvise(self, a, b, c):
         ...
 
-    def resize(self, file_size: int):
+    def resize(self, int file_size):
         self.size = file_size
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):

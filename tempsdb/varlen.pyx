@@ -612,7 +612,7 @@ cdef class VarlenSeries:
         elif self.size_field == 3:
             return 0xFFFFFF
         elif self.size_field == 4:
-            return 0xFFFFFFFF
+            return 0x7FFFFFFF
         else:
             raise ValueError('How did this happen?')
 

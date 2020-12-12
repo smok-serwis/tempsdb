@@ -3,6 +3,7 @@ import os
 import unittest
 
 from tempsdb.varlen import create_varlen_series
+from tempsdb.database import Database
 
 logger = logging.getLogger(__name__)
 

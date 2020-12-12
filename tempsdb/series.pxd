@@ -11,7 +11,7 @@ cdef class TimeSeries:
         readonly str name
         unsigned int max_entries_per_chunk
         readonly unsigned long long last_entry_synced
-        readonly unsigned int block_size
+        readonly int block_size
         readonly unsigned long long last_entry_ts
         unsigned int page_size
         readonly dict metadata

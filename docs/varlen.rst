@@ -36,7 +36,7 @@ Note that the only valid sizes of `size_struct` are:
 * 1 for maximum length of 255
 * 2 for maximum length of 65535
 * 3 for maximum length of 16777215
-* 4 for maximum length of 4294967295
+* 4 for maximum length of 2147483647
 
 Also note that variable length series live in a different namespace than standard
 time series, so you can name them the same.
