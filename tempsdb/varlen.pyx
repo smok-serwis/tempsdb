@@ -527,7 +527,7 @@ cdef class VarlenSeries:
             int segment = 1
             int cur_len
         self.root_series.append(timestamp, data_to_put)
-        while pointer < len(data):
+        while pointer < len(data) and segment < len(self.series):
             cur_len = self.get_length_for(segment)
             data_to_put = data[pointer:pointer+cur_len]
             self.series[segment].append_padded(timestamp, data_to_put)
@@ -543,6 +543,7 @@ cdef class VarlenSeries:
         """
         self.close()
         shutil.rmtree(self.path)
+        return 0
 
     cdef int add_series(self) except -1:
         """
