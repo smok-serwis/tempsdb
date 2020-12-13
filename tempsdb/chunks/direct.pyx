@@ -1,4 +1,6 @@
+import bz2
 import gzip
+import os
 import typing as tp
 import struct
 import warnings
@@ -58,7 +60,7 @@ cdef class DirectChunk(Chunk):
 
     cpdef object open_file(self, str path):
         if self.gzip:
-            return gzip.open(path, 'wb+', compresslevel=self.gzip)
+            return bz2.BZ2File(path, 'rb+', compresslevel=self.gzip)
         else:
             return super().open_file(path)
 
@@ -66,16 +68,13 @@ cdef class DirectChunk(Chunk):
         return 0
 
     cpdef int after_init(self) except -1:
-        if isinstance(self.file, gzip.GzipFile):
-            self.file_size = self.file.size
-        else:
-            self.io.seek(0, 2)
-            self.file_size = self.file.tell()
+        self.file.seek(0, os.SEEK_END)
+        self.file_size = self.file.tell()
         self.entries = (self.file_size - HEADER_SIZE) // self.block_size_plus
         self.pointer = self.file_size
         d = (self.file_size - self.block_size) - (self.file_size-self.block_size_plus)
         cdef bytes b = self.mmap[self.file_size-self.block_size_plus:self.file_size-self.block_size]
-        print(self.file, d, repr(b))
+
         self.max_ts, = STRUCT_Q.unpack(b)
         return 0
 

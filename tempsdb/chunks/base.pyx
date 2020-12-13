@@ -1,4 +1,4 @@
-import gzip
+import bz2
 import io
 import os
 import threading
@@ -28,15 +28,12 @@ cdef class AlternativeMMap:
     def madvise(self, a, b, c):
         ...
 
-    def resize(self, file_size: int):
+    def resize(self, int file_size):
         self.size = file_size
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
-        if isinstance(io_file, gzip.GzipFile):
-            self.size = self.io.size
-        else:
-            self.io.seek(self.file_size, 0)
+        self.io.seek(0, 2)
         self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
