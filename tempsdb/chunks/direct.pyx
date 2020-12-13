@@ -1,10 +1,10 @@
-import bz2
 import gzip
 import os
 import typing as tp
 import struct
 import warnings
 
+from tempsdb.chunks.gzip import ReadWriteGzipFile
 from ..series cimport TimeSeries
 from .base cimport Chunk
 
@@ -28,7 +28,7 @@ cdef class DirectChunk(Chunk):
     Note that you can only use gzip if you set use_descriptor_access to True
 
     :param gzip_compression_level: gzip compression level to use. 0 is default and means
-        gzip disabled.
+        gzip disabled. If given, a warning will be emitted as gzip support is still experimental.
     :raises ValueError: non-direct descriptor was requested and gzip was enabled
     """
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
@@ -43,6 +43,7 @@ cdef class DirectChunk(Chunk):
         if use_descriptor_access is None:
             use_descriptor_access = False
             if gzip_compression_level:
+                warnings.warn('Gzip support is experimental')
                 use_descriptor_access = True
 
         self.gzip = gzip_compression_level
@@ -60,7 +61,7 @@ cdef class DirectChunk(Chunk):
 
     cpdef object open_file(self, str path):
         if self.gzip:
-            return bz2.BZ2File(path, 'rb+', compresslevel=self.gzip)
+            return ReadWriteGzipFile(path, compresslevel=self.gzip)
         else:
             return super().open_file(path)
 

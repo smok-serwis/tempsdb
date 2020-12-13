@@ -19,6 +19,14 @@ Start off by instantiating an object
 .. autoclass:: tempsdb.database.Database
     :members:
 
+Note that if you specify a `gzip_level` argument in
+:meth:`~tempsdb.database.Database.create_series`, GZIP compression will be used.
+
+Note that gzip-compressed series are very slow to read, since every seek needs
+to start from scratch. This will be fixed in the future.
+
+Also, any gzip-opened series will raise a warning, since their support is experimental at best.
+
 You can create new databases via
 
 .. autofunction:: tempsdb.database.create_database

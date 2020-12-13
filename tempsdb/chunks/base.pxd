@@ -4,6 +4,7 @@ cdef class AlternativeMMap:
     cdef:
         object io, file_lock_object
         unsigned long size
+        unsigned long long pointer
 
 
 cdef class Chunk:

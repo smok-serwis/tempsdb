@@ -91,6 +91,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 * `Iterator`'s destructor will emit a warning if you forget to close it explicitly.
 * added option for transparent gzip compression
     Please note that gzip disables mmap!
+* experimental gzip support for constant-length time series
 
 ## v0.4.2
 

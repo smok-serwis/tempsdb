@@ -221,6 +221,8 @@ cdef class Database:
             raise ValueError('Invalid block size, pick larger page')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
+        if gzip_level:
+            warnings.warn('Gzip support is experimental')
         cdef TimeSeries series = create_series(os.path.join(self.path, name), name,
                                                block_size,
                                                entries_per_chunk, page_size=page_size,

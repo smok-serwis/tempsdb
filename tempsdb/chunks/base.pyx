@@ -1,10 +1,11 @@
-import bz2
 import io
 import os
 import threading
 import typing as tp
 import struct
 import mmap
+
+from .gzip cimport ReadWriteGzipFile
 from ..exceptions import Corruption, InvalidState, AlreadyExists
 from ..series cimport TimeSeries
 
@@ -20,7 +21,9 @@ DEF FOOTER_SIZE = 4
 
 cdef class AlternativeMMap:
     """
-    An alternative mmap implementation used when mmap cannot allocate due to memory issues
+    An alternative mmap implementation used when mmap cannot allocate due to memory issues.
+
+    Note that opening gzip files is slow, as the script needs to iterate
     """
     def flush(self):
         self.io.flush()
@@ -33,17 +36,22 @@ cdef class AlternativeMMap:
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
-        self.io.seek(0, 2)
-        self.size = self.io.tell()
+        if isinstance(io_file, ReadWriteGzipFile):
+            self.size = io_file.size()
+        else:
+            self.io.seek(0, 2)
+            self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
     def __getitem__(self, item: slice) -> bytes:
         cdef:
             unsigned long start = item.start
             unsigned long stop = item.stop
+            bytes b
 
         with self.file_lock_object:
-            self.io.seek(start, 0)
+            if start != self.io.tell():
+                self.io.seek(start, 0)
             return self.io.read(stop-start)
 
     def __setitem__(self, key: slice, value: bytes):
@@ -51,7 +59,8 @@ cdef class AlternativeMMap:
             unsigned long start = key.start
 
         with self.file_lock_object:
-            self.io.seek(start, 0)
+            if not isinstance(self.io, ReadWriteGzipFile):
+                self.io.seek(0, 2)
             self.io.write(value)
 
     def close(self):
@@ -232,8 +241,8 @@ cdef class Chunk:
         if self.file_lock_object:
             self.file_lock_object.acquire()
         try:
+            self.mmap.seek(self.file_size)
             self.file_size += self.page_size
-            self.file.seek(0, 2)
             ba = bytearray(self.page_size)
             ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
             self.file.write(ba)
