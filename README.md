@@ -54,7 +54,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.5.1
 
-* _TBA_
+* added `VarlenSeries.close_chunks`
 
 ## v0.5
 

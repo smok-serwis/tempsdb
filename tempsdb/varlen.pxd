@@ -24,6 +24,7 @@ cdef class VarlenSeries:
     cdef int get_length_for(self, int index)
     cpdef int trim(self, unsigned long long timestamp) except -1
     cdef int add_series(self) except -1
+    cpdef int close_chunks(self) except -1
     cdef void register_memory_pressure_manager(self, object mpm)
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
     cpdef long long get_maximum_length(self) except -1

@@ -23,7 +23,7 @@ if 'CI' in os.environ:
 
 
 setup(name='tempsdb',
-      version='0.5.1a1',
+      version='0.5.1a2',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.24', 'ujson', 'indexed_gzip'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb'), **ext_kwargs), ],

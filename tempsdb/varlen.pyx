@@ -429,6 +429,15 @@ cdef class VarlenSeries:
         for series in self.series:
             series.register_memory_pressure_manager(mpm)
 
+    cpdef int close_chunks(self) except -1:
+        """
+        Close unnecessary chunks
+        """
+        cdef TimeSeries series
+        for series in self.series:
+            series.close_chunks()
+        return 0
+
     cpdef VarlenIterator iterate_range(self, unsigned long long start, unsigned long long stop,
                                        bint direct_bytes=False):
         """
