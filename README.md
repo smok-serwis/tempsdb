@@ -52,6 +52,10 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
+## v0.5.1
+
+* _TBA_
+
 ## v0.5
 
 * if mmap is used, the kernel will be informed after loading the chunk that we 
