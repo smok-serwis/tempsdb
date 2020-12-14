@@ -359,7 +359,6 @@ cdef class Chunk:
         :raises InvalidState: chunk is closed
         """
         raise NotImplementedError('Abstract method!')
-        return 0
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
         """
