@@ -2,12 +2,11 @@ import os
 import typing as tp
 
 from Cython.Build import cythonize
-from satella.distutils import monkey_patch_parallel_compilation
 from satella.files import find_files
 from distutils.core import setup
 
 from setuptools import Extension
-from snakehouse import Multibuild, build
+from snakehouse import Multibuild, build, monkey_patch_parallel_compilation
 
 
 def find_pyx(*path) -> tp.List[str]:
@@ -23,15 +22,17 @@ monkey_patch_parallel_compilation()
 #               Extension('tempsdb.iterators', ['tempsdb/iterators.pyx'])]
 #
 directives = {'language_level': '3'}
+m_kwargs = {}
 if 'CI' in os.environ:
     directives.update(profile=True, linetrace=True, embedsignature=True)
+    m_kwargs['define_macros'] = [("CYTHON_TRACE_NOGIL", "1")]
 
 
 setup(name='tempsdb',
-      version='0.5.0a9',
+      version='0.5a10',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.21', 'ujson'],
-      ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],
+      ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb'), **m_kwargs), ],
                         compiler_directives=directives),
       # ext_modules=cythonize(extensions,
       #                   gdb_debug=True,

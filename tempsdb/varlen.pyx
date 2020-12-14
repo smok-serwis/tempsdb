@@ -7,7 +7,7 @@ import warnings
 from .chunks.base cimport Chunk
 from .exceptions import Corruption, AlreadyExists, StillOpen
 from .iterators cimport Iterator
-from .series cimport TimeSeries, create_series
+from tempsdb.series cimport TimeSeries, create_series
 
 
 cdef class VarlenEntry:
@@ -552,6 +552,8 @@ cdef class VarlenSeries:
         
         Updates :attr:`~tempsdb.varlen.VarlenSeries.current_maximum_length`.
         """
+        from tempsdb.series import create_series
+
         cdef:
             int new_name = len(self.series)
             int new_len = self.get_length_for(new_name)
@@ -561,6 +563,8 @@ cdef class VarlenSeries:
                                               new_len,
                                               self.max_entries_per_chunk,
                                               gzip_level=self.gzip_level)
+        if self.mpm is not None:
+            series.register_memory_pressure_manager(self.mpm)
         self.series.append(series)
         self.current_maximum_length += new_len
 
@@ -636,7 +640,7 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
     :raises AlreadyExists: directory exists at given path
     :raises ValueError: invalid length profile or max_entries_per_chunk or size_struct
     """
-    from .series import create_series
+    from tempsdb.series import create_series
 
     if os.path.exists(path):
         raise AlreadyExists('directory present at paht')

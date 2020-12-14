@@ -1,4 +1,4 @@
-from .series cimport TimeSeries
+from .series cimport TimeSeries, create_series
 
 
 cdef class VarlenSeries:

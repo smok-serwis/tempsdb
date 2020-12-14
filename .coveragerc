@@ -8,7 +8,6 @@ omit=
   tests/*
   .eggs/*
   setup.py
-  tempsdb/__init__.py
 
 [report]
 include=

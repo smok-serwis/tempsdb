@@ -177,14 +177,19 @@ cdef class TimeSeries:
         Acquires a reference to the chunk.
         
         :param name: name of the chunk
+        :param is_direct: is this a direct chunk?
+        :param is_gzip: is this a gzipped chunk?
         :return: chunk
         :raises DoesNotExist: chunk not found
         :raises InvalidState: resource closed
+        :raises ValueError: chunk was gzipped but not direct
         """
         if self.closed:
             raise InvalidState('Series is closed')
         if name not in (v[0] for v in self.chunks):
-            raise DoesNotExist('Invalid chunk!')
+            raise DoesNotExist('Invalid chunk')
+        if is_gzip and not is_direct:
+            raise ValueError('Chunk that is gzipped must be direct')
         cdef Chunk chunk
         with self.open_lock:
             if name not in self.open_chunks:
@@ -530,4 +535,5 @@ cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
     if gzip_level:
         meta['gzip_level'] = gzip_level
     write_json_to_file(os.path.join(path, 'metadata.txt'), meta)
-    return TimeSeries(path, name)
+    return TimeSeries(path, name,
+                      use_descriptor_based_access=use_descriptor_based_access)
