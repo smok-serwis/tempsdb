@@ -2,3 +2,4 @@ satella
 ujson
 snakehouse
 six
+indexed_gzip

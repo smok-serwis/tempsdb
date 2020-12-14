@@ -12,13 +12,24 @@ jobs:
       - python/install-deps
       - python/save-cache
       - run:
+          name: Setup Code Climate test-reporter
           command: |
-            sudo pip install satella>=2.14.23 snakehouse
+          # download test reporter as a static binary
+            curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+            chmod +x ./cc-test-reporter
+      - run:
+          command: |
+            sudo pip install nose2
           name: Install necessary modules
       - run:
           command: |
-            sudo python setup.py test
+            sudo source tests/test.sh
           name: Test
+      - run:
+          command: |
+            sudo coverage xml
+            sudo ./cc-test-reporter after-build -t coverage.py
+          name: Send back coverage results
 
 workflows:
   main:
