@@ -28,7 +28,8 @@ cdef class Database:
     cpdef int delete_series(self, str name) except -1
     cpdef int delete_varlen_series(self, str name) except -1
     cpdef list get_open_series(self)
-    cpdef list get_all_series(self)
+    cpdef list get_all_normal_series(self)
+    cpdef list get_all_varlen_series(self)
     cpdef int close_all_open_series(self) except -1
     cpdef unsigned long long get_first_entry_for(self, str name)
     cpdef int sync(self) except -1

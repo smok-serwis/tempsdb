@@ -39,11 +39,12 @@ cdef class Database:
         Return all open series
         
         :return: open series
-        :rtype: tp.List[TimeSeries]
+        :rtype: tp.List[tp.Union[VarlenSeries, TimeSeries]]
         """
         cdef:
             list output = []
             TimeSeries series
+            VarlenSeries v_series
             str name
         with self.lock:
             with DictDeleter(self.open_series) as dd:
@@ -52,6 +53,12 @@ cdef class Database:
                         dd.delete()
                     else:
                         output.append(series)
+            with DictDeleter(self.open_varlen_series) as dd:
+                for v_series in dd.values():
+                    if v_series.closed:
+                        dd.delete()
+                    else:
+                        output.append(v_series)
         return output
 
     cpdef int delete_series(self, str name) except -1:
@@ -132,7 +139,9 @@ cdef class Database:
 
     cpdef int close_all_open_series(self) except -1:
         """
-        Closes all open series
+        Closes all open series.
+        
+        Note that this won't close variable length series that are in-use.
         """
         cdef:
             TimeSeries series
@@ -141,9 +150,13 @@ cdef class Database:
             for series in self.open_series.values():
                 series.close()
             self.open_series = {}
-            for v_series in self.open_varlen_series.values():
-                v_series.close()
-            self.open_varlen_series = {}
+            with DictDeleter(self.open_varlen_series) as dd:
+                for v_series in dd.values():
+                    try:
+                        v_series.close()
+                        dd.delete()
+                    except StillOpen:
+                        pass
         return 0
 
     cpdef unsigned long long get_first_entry_for(self, str name):
@@ -182,14 +195,23 @@ cdef class Database:
             if not series.closed:
                 series.sync()
 
-    cpdef list get_all_series(self):
+    cpdef list get_all_normal_series(self):
         """
-        Stream all series available within this database
+        Stream all constant-length series available within this database
                 
         :return: a list of series names
         :rtype: tp.List[str]
         """
         return os.listdir(self.path)
+
+    cpdef list get_all_varlen_series(self):
+        """
+        Stream all variable-length series available within this database
+                
+        :return: a list of series names
+        :rtype: tp.List[str]
+        """
+        return os.listdir(os.path.join(self.path, 'varlen'))
 
     cpdef VarlenSeries create_varlen_series(self, str name, list length_profile,
                                             int size_struct,
