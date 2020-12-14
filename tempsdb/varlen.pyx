@@ -552,7 +552,7 @@ cdef class VarlenSeries:
         
         Updates :attr:`~tempsdb.varlen.VarlenSeries.current_maximum_length`.
         """
-        from tempsdb.series import create_series
+        from .series import create_series
 
         cdef:
             int new_name = len(self.series)

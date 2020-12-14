@@ -16,7 +16,7 @@ exclude_paths:
   - docs/**
 ratings:
   paths:
-    - smokclient/**
+    - tempsdb/**
 checks:
   argument-count:
     config:

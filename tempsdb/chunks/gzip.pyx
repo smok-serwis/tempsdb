@@ -1,4 +1,5 @@
 import gzip
+import indexed_gzip
 import threading
 
 
@@ -6,7 +7,7 @@ cdef class ReadWriteGzipFile:
     def __init__(self, path: str, compresslevel: int = gzip._COMPRESS_LEVEL_FAST):
         self.path = path
         self.compress_level = compresslevel
-        self.ro_file = gzip.GzipFile(path, 'rb')
+        self.ro_file = indexed_gzip.IndexedGzipFile(path)
         self.rw_file = gzip.GzipFile(path, 'ab', compresslevel=self.compress_level)
         self.pointer = 0
         self.lock = threading.RLock()
