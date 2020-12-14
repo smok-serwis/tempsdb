@@ -300,6 +300,7 @@ cdef class VarlenIterator:
     def __init__(self, parent: VarlenSeries, start: int, stop: int,
                  direct_bytes: bool = False):
         self.parent = parent
+        self.parent.references += 1
         self.start = start
         self.stop = stop
         self.direct_bytes = direct_bytes
@@ -596,18 +597,20 @@ cdef class VarlenSeries:
         """
         return self.length_profile[-1 if index >= len(self.length_profile) else index]
 
-    cpdef int close(self) except -1:
+    cpdef int close(self, bint force=False) except -1:
         """
         Close this series.
         
         No-op if already closed.
+        
+        :param force: set to True to ignore open references
         
         :raises StillOpen: some references are being held
         """
         if self.closed:
             return 0
 
-        if self.references:
+        if self.references and not force:
             raise StillOpen('still some iterators around')
 
         self.closed = True

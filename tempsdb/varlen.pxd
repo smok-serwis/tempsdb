@@ -18,7 +18,7 @@ cdef class VarlenSeries:
         int gzip_level
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
-    cpdef int close(self) except -1
+    cpdef int close(self, bint force=*) except -1
     cpdef int delete(self) except -1
     cpdef tuple get_current_value(self)
     cdef int get_length_for(self, int index)

@@ -322,7 +322,7 @@ cdef class Database:
                 series.close()  # because already closed series won't close themselves
             self.open_series = {}
             for var_series in self.open_varlen_series.values():
-                var_series.close()
+                var_series.close(True)
             self.open_varlen_series = {}
         self.closed = True
         return 0
