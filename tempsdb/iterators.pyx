@@ -1,7 +1,7 @@
 import typing as tp
 import warnings
 
-from .chunks cimport Chunk
+from .chunks.base cimport Chunk
 from .series cimport TimeSeries
 import collections
 

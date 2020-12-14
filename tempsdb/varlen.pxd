@@ -1,4 +1,4 @@
-from .series cimport TimeSeries
+from .series cimport TimeSeries, create_series
 
 
 cdef class VarlenSeries:
@@ -15,6 +15,7 @@ cdef class VarlenSeries:
         int max_entries_per_chunk
         int current_maximum_length
         object mpm
+        int gzip_level
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int close(self) except -1
@@ -64,4 +65,5 @@ cdef class VarlenEntry:
     cpdef int close(self) except -1
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,
-                                        int max_entries_per_chunk)
+                                        int max_entries_per_chunk,
+                                        int gzip_level=*)

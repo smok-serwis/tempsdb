@@ -1,4 +1,4 @@
-from .chunks cimport Chunk
+from .chunks.base cimport Chunk
 from .series cimport TimeSeries
 
 

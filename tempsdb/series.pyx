@@ -5,7 +5,10 @@ import warnings
 
 from satella.json import write_json_to_file, read_json_from_file
 
-from .chunks cimport create_chunk, Chunk
+from .chunks.base cimport Chunk
+from .chunks.normal cimport NormalChunk
+from .chunks.direct cimport DirectChunk
+from .chunks.maker cimport create_chunk
 from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 import os
 
@@ -109,41 +112,53 @@ cdef class TimeSeries:
             str filename
             list files = os.listdir(self.path)
             unsigned long long last_chunk_name
+            bint is_direct
+            bint is_gzip
 
         try:
             metadata = read_json_from_file(os.path.join(self.path, METADATA_FILE_NAME))
             self.block_size = metadata['block_size']
             self.max_entries_per_chunk = metadata['max_entries_per_chunk']
             self.last_entry_synced = metadata['last_entry_synced']
-            self.page_size = metadata.get('page_size', DEFAULT_PAGE_SIZE)
+            self.page_size = metadata.get('page_size', 4096)
             self.metadata = metadata.get('metadata')
+            self.gzip_level = metadata.get('gzip_level', 0)
+        except ValueError:
+            raise Corruption('Corrupted series')
         except (OSError, ValueError) as e:
             raise Corruption('Corrupted series: %s' % (e, ))
         except KeyError:
             raise Corruption('Could not read metadata item')
 
         self.open_chunks = {}       # tp.Dict[int, Chunk]
+        self.chunks = []            # type: tp.List[tp.Tuple[int, bool, bool]] # sorted by ASC
+                                    #: timestamp, is_direct, is_gzip
 
         if not len(files):
             raise Corruption('Empty directory!')
         elif len(files) == 1:
             # empty series
             self.last_chunk = None
-            self.chunks = []
             self.last_entry_ts = 0
         else:
-            self.chunks = []        # type: tp.List[int] # sorted by ASC
             for filename in files:
                 if filename == METADATA_FILE_NAME:
                     continue
+                is_gzip = filename.endswith('.gz')
+                if is_gzip:
+                    filename = filename.replace('.gz', '')
+                is_direct = filename.endswith('.direct')
+                if is_direct:
+                    filename = filename.replace('.direct', '')
+                is_direct |= is_gzip
                 try:
                     self.chunks.append(int(filename))
                 except ValueError:
                     raise Corruption('Detected invalid file "%s"' % (filename, ))
             self.chunks.sort()
 
-            last_chunk_name = self.chunks[-1]
-            self.last_chunk = self.open_chunk(last_chunk_name)
+            last_chunk_name, is_direct, is_gzip = self.chunks[-1]
+            self.last_chunk = self.open_chunk(last_chunk_name, is_direct, is_gzip)
             self.last_entry_ts = self.last_chunk.max_ts
 
     cdef void decref_chunk(self, unsigned long long name):
@@ -155,28 +170,41 @@ cdef class TimeSeries:
         else:
             self.refs_chunks[name] += 1
 
-    cdef Chunk open_chunk(self, unsigned long long name):
+    cdef Chunk open_chunk(self, unsigned long long name, bint is_direct, bint is_gzip):
         """
         Opens a provided chunk.
         
         Acquires a reference to the chunk.
         
         :param name: name of the chunk
+        :param is_direct: is this a direct chunk?
+        :param is_gzip: is this a gzipped chunk?
         :return: chunk
         :raises DoesNotExist: chunk not found
         :raises InvalidState: resource closed
+        :raises ValueError: chunk was gzipped but not direct
         """
         if self.closed:
             raise InvalidState('Series is closed')
-        if name not in self.chunks:
-            raise DoesNotExist('Invalid chunk!')
+        if name not in (v[0] for v in self.chunks):
+            raise DoesNotExist('Invalid chunk')
+        if is_gzip and not is_direct:
+            raise ValueError('Chunk that is gzipped must be direct')
         cdef Chunk chunk
         with self.open_lock:
             if name not in self.open_chunks:
-                self.open_chunks[name] = chunk = Chunk(self,
-                                                       os.path.join(self.path, str(name)),
-                                                       self.page_size,
-                                                       use_descriptor_access=self.descriptor_based_access)
+                if is_direct:
+                    chunk = DirectChunk(self,
+                                        os.path.join(self.path, str(name)),
+                                        self.page_size,
+                                        use_descriptor_access=True,
+                                        gzip_compression_level=self.gzip_level if is_gzip else 0)
+                else:
+                    chunk = NormalChunk(self,
+                                  os.path.join(self.path, str(name)),
+                                  self.page_size,
+                                  use_descriptor_access=self.descriptor_based_access)
+                self.open_chunks[name] = chunk
             else:
                 chunk = self.open_chunks[name]
             self.incref_chunk(name)
@@ -184,20 +212,36 @@ cdef class TimeSeries:
 
     cpdef int trim(self, unsigned long long timestamp) except -1:
         """
-        Delete all entries earlier than timestamp that are closed.
+        Delete all entries earlier than timestamp.
         
         Note that this will drop entire chunks, so it may be possible that some entries will linger
-        on. 
-        
-        This will affect only closed chunks. Chunks ready to delete that are closed after
-        this will not be deleted, as :meth:`~tempsdb.series.TimeSeries.trim` will need
-        to be called again.
+        on. This will not delete currently opened chunks!
         
         :param timestamp: timestamp to delete entries earlier than
         """
+        if len(self.chunks) == 1:
+            return 0
         cdef:
             unsigned long long chunk_to_delete
             int refs
+        try:
+            with self.open_lock:
+                while len(self.chunks) >= 2 and timestamp > self.chunks[1][0]:
+                    chunk_to_delete = self.chunks[0][0]
+                    if chunk_to_delete in self.open_chunks:
+                        refs = self.refs_chunks.get(chunk_to_delete, 0)
+                        if not refs:
+                            self.open_chunks[chunk_to_delete].delete()
+                        else:
+                            # I would delete it, but it's open...
+                            return 0
+                    else:
+                        os.unlink(os.path.join(self.path, str(chunk_to_delete)))
+                    del self.chunks[0]
+                else:
+                    return 0
+        except IndexError:
+            return 0
         if len(self.chunks) > 1:
             try:
                 with self.open_lock:
@@ -251,13 +295,13 @@ cdef class TimeSeries:
             unsigned int mid
         while lo < hi:
             mid = (lo+hi)//2
-            if self.chunks[mid] < timestamp:
+            if self.chunks[mid][0] < timestamp:
                 lo = mid+1
             else:
                 hi = mid
 
         try:
-            if self.chunks[lo] == timestamp:
+            if self.chunks[lo][0] == timestamp:
                 return lo
             else:
                 return lo-1
@@ -278,8 +322,8 @@ cdef class TimeSeries:
 
         if start > stop:
             raise ValueError('start larger than stop')
-        if start < self.chunks[0]:
-            start = self.chunks[0]
+        if start < self.chunks[0][0]:
+            start = self.chunks[0][0]
         if stop > self.last_entry_ts:
             stop = self.last_entry_ts
 
@@ -293,7 +337,8 @@ cdef class TimeSeries:
             Chunk chunk
 
         for chunk_index in range(ch_start, ch_stop+1):
-            chunks.append(self.open_chunk(self.chunks[chunk_index]))
+            ts, is_direct, is_gzip = self.chunks[chunk_index]
+            chunks.append(self.open_chunk(ts, is_direct, is_gzip))
         return Iterator(self, start, stop, chunks)
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
@@ -403,6 +448,7 @@ cdef class TimeSeries:
             raise ValueError('Data too long')
         data = data + b'\x00'*(self.block_size - data_len)
         self.append(timestamp, data)
+        return 0
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
@@ -428,10 +474,12 @@ cdef class TimeSeries:
                     self.decref_chunk(self.last_chunk.name())
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                timestamp, data, self.page_size,
-                                               descriptor_based_access=self.descriptor_based_access)
+                                               descriptor_based_access=self.descriptor_based_access,
+                                               use_direct_mode=bool(self.gzip_level),
+                                               gzip_compression_level=self.gzip_level)
                 self.open_chunks[timestamp] = self.last_chunk
                 self.incref_chunk(timestamp)
-                self.chunks.append(timestamp)
+                self.chunks.append((timestamp, bool(self.gzip_level), bool(self.gzip_level)))
             else:
                 self.last_chunk.append(timestamp, data)
             self.last_entry_ts = timestamp
@@ -472,17 +520,20 @@ cdef class TimeSeries:
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
                                int max_entries_per_chunk, int page_size=DEFAULT_PAGE_SIZE,
-                               bint use_descriptor_based_access=False):
+                               bint use_descriptor_based_access=False,
+                               int gzip_level=0):
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
-
+    os.mkdir(path)
     cdef dict meta = {
             'block_size': block_size,
             'max_entries_per_chunk': max_entries_per_chunk,
             'last_entry_synced': 0
-            }
+    }
     if page_size != DEFAULT_PAGE_SIZE:
         meta['page_size'] = page_size
-    os.mkdir(path)
-    write_json_to_file(os.path.join(path, METADATA_FILE_NAME), meta)
-    return TimeSeries(path, name)
+    if gzip_level:
+        meta['gzip_level'] = gzip_level
+    write_json_to_file(os.path.join(path, 'metadata.txt'), meta)
+    return TimeSeries(path, name,
+                      use_descriptor_based_access=use_descriptor_based_access)

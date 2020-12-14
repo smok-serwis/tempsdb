@@ -1,4 +1,4 @@
 satella
 ujson
-snakehouse
+snakehouse>=1.2.3
 six

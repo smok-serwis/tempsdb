@@ -149,7 +149,8 @@ cdef class Database:
 
     cpdef VarlenSeries create_varlen_series(self, str name, list length_profile,
                                             int size_struct,
-                                            unsigned long entries_per_chunk):
+                                            unsigned long entries_per_chunk,
+                                            int gzip_level=0):
         """
         Create a new variable length series
         
@@ -158,6 +159,7 @@ cdef class Database:
         :param size_struct: how many bytes will be used to store length?
             Valid entries are 1, 2 and 4
         :param entries_per_chunk: entries per chunk file
+        :param gzip_level: level of gzip compression. Leave at 0 (default) to disable compression.
         :return: new variable length series
         :raises AlreadyExists: series with given name already exists
         """
@@ -166,7 +168,8 @@ cdef class Database:
         cdef VarlenSeries series = create_varlen_series(os.path.join(self.path, name), name,
                                                         size_struct,
                                                         length_profile,
-                                                        entries_per_chunk)
+                                                        entries_per_chunk,
+                                                        gzip_level=gzip_level)
         self.open_varlen_series[name] = series
         return series
 
@@ -201,7 +204,8 @@ cdef class Database:
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,
                                    int page_size=4096,
-                                   bint use_descriptor_based_access=False):
+                                   bint use_descriptor_based_access=False,
+                                   int gzip_level=0):
         """
         Create a new series
         
@@ -211,6 +215,7 @@ cdef class Database:
         :param page_size: size of a single page. Default is 4096
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap.
             Default is False
+        :param gzip_level: gzip compression level. Default is 0 which means "don't use gzip"
         :return: new series
         :raises ValueError: block size was larger than page_size plus a timestamp
         :raises AlreadyExists: series with given name already exists
@@ -219,10 +224,13 @@ cdef class Database:
             raise ValueError('Invalid block size, pick larger page')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
+        if gzip_level:
+            warnings.warn('Gzip support is experimental')
         cdef TimeSeries series = create_series(os.path.join(self.path, name), name,
                                                block_size,
                                                entries_per_chunk, page_size=page_size,
-                                               use_descriptor_based_access=use_descriptor_based_access)
+                                               use_descriptor_based_access=use_descriptor_based_access,
+                                               gzip_level=gzip_level)
         self.open_series[name] = series
         return series
 

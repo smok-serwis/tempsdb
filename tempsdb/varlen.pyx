@@ -4,10 +4,10 @@ import typing as tp
 import struct
 import warnings
 
-from .chunks cimport Chunk
+from .chunks.base cimport Chunk
 from .exceptions import Corruption, AlreadyExists, StillOpen
 from .iterators cimport Iterator
-from .series cimport TimeSeries, create_series
+from tempsdb.series cimport TimeSeries, create_series
 
 
 cdef class VarlenEntry:
@@ -442,6 +442,7 @@ cdef class VarlenSeries:
         self.mpm = None
         self.name = name
         self.root_series = TimeSeries(os.path.join(path, 'root'), 'root')
+        self.gzip_level = self.root_series.gzip_level
         self.max_entries_per_chunk = self.root_series.max_entries_per_chunk
         try:
             self.size_field = self.root_series.metadata['size_field']
@@ -551,6 +552,8 @@ cdef class VarlenSeries:
         
         Updates :attr:`~tempsdb.varlen.VarlenSeries.current_maximum_length`.
         """
+        from tempsdb.series import create_series
+
         cdef:
             int new_name = len(self.series)
             int new_len = self.get_length_for(new_name)
@@ -558,7 +561,10 @@ cdef class VarlenSeries:
             TimeSeries series = create_series(os.path.join(self.path, new_name_s),
                                               new_name_s,
                                               new_len,
-                                              self.max_entries_per_chunk)
+                                              self.max_entries_per_chunk,
+                                              gzip_level=self.gzip_level)
+        if self.mpm is not None:
+            series.register_memory_pressure_manager(self.mpm)
         self.series.append(series)
         self.current_maximum_length += new_len
 
@@ -616,9 +622,11 @@ cdef class VarlenSeries:
         else:
             raise ValueError('How did this happen?')
 
+from tempsdb.series cimport TimeSeries
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,
-                                        int max_entries_per_chunk):
+                                        int max_entries_per_chunk,
+                                        int gzip_level=0):
     """
     Create a variable length series
     
@@ -627,10 +635,13 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
     :param size_struct: size of the length indicator. Must be one of 1, 2, 3 or 4.
     :param length_profile: series' length profile
     :param max_entries_per_chunk: maximum entries per a chunk file
+    :param gzip_level: level of gzip compression. Leave at 0 (default) to disable compression.
     :return: newly created VarlenSeries
     :raises AlreadyExists: directory exists at given path
     :raises ValueError: invalid length profile or max_entries_per_chunk or size_struct
     """
+    from tempsdb.series import create_series
+
     if os.path.exists(path):
         raise AlreadyExists('directory present at paht')
     if not length_profile or not max_entries_per_chunk:
@@ -642,7 +653,8 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
     cdef TimeSeries root_series = create_series(os.path.join(path, 'root'),
                                                 'root',
                                                 size_struct+length_profile[0],
-                                                max_entries_per_chunk)
+                                                max_entries_per_chunk,
+                                                gzip_level=gzip_level)
     root_series.set_metadata({'size_field': size_struct,
                               'length_profile': length_profile})
     root_series.close()

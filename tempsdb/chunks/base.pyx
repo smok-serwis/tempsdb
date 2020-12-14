@@ -6,20 +6,25 @@ import struct
 import mmap
 import warnings
 
-from .exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
-from .series cimport TimeSeries
+from .gzip cimport ReadWriteGzipFile
+from ..exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
+from ..series cimport TimeSeries
 
-DEF HEADER_SIZE = 4
-DEF TIMESTAMP_SIZE = 8
-DEF FOOTER_SIZE = 4
+
 STRUCT_Q = struct.Struct('<Q')
 STRUCT_L = struct.Struct('<L')
 STRUCT_LQ = struct.Struct('<LQ')
 
+DEF HEADER_SIZE = 4
+DEF TIMESTAMP_SIZE = 8
+DEF FOOTER_SIZE = 4
+
 
 cdef class AlternativeMMap:
     """
-    An alternative mmap implementation used when mmap cannot allocate due to memory issues
+    An alternative mmap implementation used when mmap cannot allocate due to memory issues.
+
+    Note that opening gzip files is slow, as the script needs to iterate
     """
     def flush(self):
         self.io.flush()
@@ -32,8 +37,13 @@ cdef class AlternativeMMap:
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
-        self.io.seek(0, io.SEEK_END)
-        self.size = self.io.tell()
+        cdef ReadWriteGzipFile rw_gz
+        if isinstance(io_file, ReadWriteGzipFile):
+            rw_gz = io_file
+            self.size = rw_gz.size
+        else:
+            self.io.seek(0, 2)
+            self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
     def __getitem__(self, item: tp.Union[int, slice]) -> tp.Union[int, bytes]:
@@ -59,8 +69,12 @@ cdef class AlternativeMMap:
             self[key:key+1] = bytes([value])
         else:
             with self.file_lock_object:
-                self.io.seek(start, 0)
+                if not isinstance(self.io, ReadWriteGzipFile):
+                    self.io.seek(start, 0)
                 self.io.write(value)
+
+    def close(self):
+        pass
 
     def close(self):
         pass
@@ -69,6 +83,10 @@ cdef class AlternativeMMap:
 cdef class Chunk:
     """
     Represents a single chunk of time series.
+
+    This implementation is the default - it allocates a page ahead of the stream and
+    writes the amount of currently written entries to the end of the page. Suitable for SSD
+    and RAM media.
 
     This also implements an iterator interface, and will iterate with tp.Tuple[int, bytes],
     as well as a sequence protocol.
@@ -134,16 +152,23 @@ cdef class Chunk:
         self.mmap = AlternativeMMap(self.file, self.file_lock_object)
         return 0
 
-    cdef void incref(self):
-        if self.parent is not None:
-            self.parent.incref_chunk(self.min_ts)
+    cpdef int after_init(self) except -1:
+        """
+        Load the :attr:`~Chunk.entries`, :attr:`~Chunk.pointer` and :attr:`~Chunk.max_ts`
+        
+        :meta private:
+        """
+        self.entries, = STRUCT_L.unpack(self.mmap[self.file_size-FOOTER_SIZE:self.file_size])
+        self.pointer = self.entries*self.block_size_plus+HEADER_SIZE
+        self.max_ts = self.get_timestamp_at(self.entries-1)
 
-    cdef int decref(self) except -1:
-        if self.parent is not None:
-            self.parent.decref_chunk(self.name())
-            if self.parent.get_references_for(self.name()) < 0:
-                raise ValueError('reference of chunk fell below zero!')
+        if self.pointer >= self.page_size:
+            # Inform the OS that we don't need the header anymore
+            self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
         return 0
+
+    cpdef object open_file(self, str path):
+        return open(self.path, 'rb+')
 
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
                  use_descriptor_access: bool = False):
@@ -153,7 +178,7 @@ cdef class Chunk:
         self.parent = parent
         self.closed = False
         self.path = path
-        self.file = open(self.path, 'rb+')
+        self.file = self.open_file(path)
         self.file_lock_object = None
 
         if use_descriptor_access:
@@ -163,10 +188,7 @@ cdef class Chunk:
             try:
                 self.mmap = mmap.mmap(self.file.fileno(), 0)
             except OSError as e:
-                if e.errno in (11,      # EAGAIN - memory is too low
-                               12,      # ENOMEM - no memory space available
-                               19,      # ENODEV - fs does not support mmapping
-                               75):     # EOVERFLOW - too many pages would have been used
+                if e.errno in (11, 12):   # Cannot allocate memory or memory range exhausted
                     self.file_lock_object = threading.Lock()
                     self.mmap = AlternativeMMap(self.file, self.file_lock_object)
                 else:
@@ -181,9 +203,11 @@ cdef class Chunk:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
 
-        self.entries, = STRUCT_L.unpack(self.mmap[self.file_size-FOOTER_SIZE:self.file_size])
-        self.pointer = self.entries*self.block_size_plus+HEADER_SIZE
-        self.max_ts = self.get_timestamp_at(self.entries-1)
+        self.entries = 0
+        self.max_ts = 0
+        self.pointer = 0
+
+        self.after_init()
 
         if self.pointer >= self.page_size:
             # Inform the OS that we don't need the header anymore
@@ -307,29 +331,8 @@ cdef class Chunk:
         self.mmap.flush()
         return 0
 
-    cdef int extend(self) except -1:
-        """
-        Adds PAGE_SIZE bytes to this file
-        """
-        cdef bytearray ba
-        if self.file_lock_object:
-            self.file_lock_object.acquire()
-        try:
-            self.file_size += self.page_size
-            self.file.seek(0, io.SEEK_END)
-            ba = bytearray(self.page_size)
-            ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
-            self.file.write(ba)
-            try:
-                self.mmap.resize(self.file_size)
-            except OSError as e:
-                if e.errno == 12:   # ENOMEM
-                    self.switch_to_descriptor_based_access()
-                else:
-                    raise
-        finally:
-            if self.file_lock_object:
-                self.file_lock_object.release()
+    cpdef int extend(self) except -1:
+        return 0
 
     cpdef int delete(self) except -1:
         """
@@ -355,21 +358,7 @@ cdef class Chunk:
         :param data: data to write
         :raises InvalidState: chunk is closed
         """
-        if self.closed:
-            raise InvalidState('chunk is closed')
-
-        if self.pointer >= self.file_size-FOOTER_SIZE-self.block_size_plus:
-            self.extend()
-        cdef unsigned long long ptr_end = self.pointer + TIMESTAMP_SIZE
-        # Append entry
-        self.mmap[self.pointer:ptr_end] = STRUCT_Q.pack(timestamp)
-        self.mmap[ptr_end:ptr_end+self.block_size] = data
-        self.entries += 1
-        # Update entries count
-        self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)
-        # Update properties
-        self.max_ts = timestamp
-        self.pointer += self.block_size_plus
+        raise NotImplementedError('Abstract method!')
         return 0
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
@@ -393,6 +382,30 @@ cdef class Chunk:
 
     def __len__(self):
         return self.length()
+
+    cdef void incref(self):
+        if self.parent is not None:
+            self.parent.incref_chunk(self.min_ts)
+
+    cdef int decref(self) except -1:
+        if self.parent is not None:
+            self.parent.decref_chunk(self.name())
+            if self.parent.get_references_for(self.name()) < 0:
+                raise ValueError('reference of chunk fell below zero!')
+        return 0
+
+    cpdef bytes get_value_at(self, unsigned int index):
+        """
+        Return only the value at a particular index, numbered from 0
+        
+        :return: value at given index
+        """
+        if index >= self.entries:
+            raise IndexError('Index too large')
+        cdef:
+            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus
+            unsigned long stopping_index = starting_index + self.block_size
+        return self.mmap[starting_index:stopping_index]
 
     cpdef int close(self, bint force=False) except -1:
         """
@@ -422,19 +435,6 @@ cdef class Chunk:
         warnings.warn('You forgot to close a Chunk')
         self.close()
 
-    cpdef bytes get_value_at(self, unsigned int index):
-        """
-        Return only the value at a particular index, numbered from 0
-        
-        :return: value at given index
-        """
-        if index >= self.entries:
-            raise IndexError('Index too large')
-        cdef:
-            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus
-            unsigned long stopping_index = starting_index + self.block_size
-        return self.mmap[starting_index:stopping_index]
-
     cdef tuple get_piece_at(self, unsigned int index):
         """
         Return a piece of data at a particular index, numbered from 0
@@ -443,56 +443,12 @@ cdef class Chunk:
         :rtype: tp.Tuple[int, bytes]
         """
         if index >= self.entries:
-            raise IndexError('Index too large')
+            raise IndexError('Index too large, got %s while max entries is %s' % (index,
+                                                                                  self.entries))
         cdef:
             unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
             unsigned long stopping_index = starting_index + self.block_size_plus
             unsigned long long ts = STRUCT_Q.unpack(
                 self.mmap[starting_index:starting_index+TIMESTAMP_SIZE])[0]
         return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]
-
-
-cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
-                         bytes data, int page_size, bint descriptor_based_access=False):
-    """
-    Creates a new chunk on disk
-    
-    :param parent: parent time series
-    :param path: path to the new chunk file
-    :param timestamp: timestamp for first entry to contain
-    :param data: data of the first entry
-    :param page_size: size of a single page for storage 
-    :param descriptor_based_access: whether to use descriptor based access instead of mmap. 
-        Default is False
-    :raises ValueError: entries in data were not of equal size, or data was empty or data
-        was not sorted by timestamp or same timestamp appeared twice
-    :raises AlreadyExists: chunk already exists 
-    """
-    if os.path.exists(path):
-        raise AlreadyExists('chunk already exists!')
-    if not data:
-        raise ValueError('Data is empty')
-    file = open(path, 'wb')
-    cdef:
-        bytes b
-        unsigned long long ts
-        unsigned long block_size = len(data)
-        unsigned long file_size = 0
-        unsigned long long last_ts = 0
-        unsigned int entries = 1
-        bint first_element = True
-    file_size += file.write(STRUCT_L.pack(block_size))
-    file_size += file.write(STRUCT_Q.pack(timestamp))
-    file_size += file.write(data)
-
-    # Pad this thing to page_size
-    cdef unsigned long bytes_to_pad = page_size - (file_size % page_size)
-    file.write(b'\x00' * bytes_to_pad)
-
-    # Create a footer at the end
-    cdef bytearray footer = bytearray(page_size)
-    footer[-4:] = b'\x01\x00\x00\x00'   # 1 in little endian
-    file.write(footer)
-    file.close()
-    return Chunk(parent, path, page_size, use_descriptor_access=descriptor_based_access)
 
