@@ -37,8 +37,10 @@ cdef class AlternativeMMap:
 
     def __init__(self, io_file: io.BinaryIO, file_lock_object):
         self.io = io_file
+        cdef ReadWriteGzipFile rw_gz
         if isinstance(io_file, ReadWriteGzipFile):
-            self.size = io_file.size()
+            rw_gz = io_file
+            self.size = rw_gz.size
         else:
             self.io.seek(0, 2)
             self.size = self.io.tell()
@@ -330,7 +332,6 @@ cdef class Chunk:
         return 0
 
     cpdef int extend(self) except -1:
-        raise NotImplementedError('Abstract method!')
         return 0
 
     cpdef int delete(self) except -1:

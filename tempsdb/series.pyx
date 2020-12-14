@@ -443,6 +443,7 @@ cdef class TimeSeries:
             raise ValueError('Data too long')
         data = data + b'\x00'*(self.block_size - data_len)
         self.append(timestamp, data)
+        return 0
 
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
@@ -490,6 +491,7 @@ cdef class TimeSeries:
             raise InvalidState('series is closed')
         self.close()
         shutil.rmtree(self.path)
+        return 0
 
     cpdef unsigned long open_chunks_mmap_size(self):
         """

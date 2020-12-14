@@ -149,7 +149,8 @@ cdef class Database:
 
     cpdef VarlenSeries create_varlen_series(self, str name, list length_profile,
                                             int size_struct,
-                                            unsigned long entries_per_chunk):
+                                            unsigned long entries_per_chunk,
+                                            int gzip_level=0):
         """
         Create a new variable length series
         
@@ -158,6 +159,7 @@ cdef class Database:
         :param size_struct: how many bytes will be used to store length?
             Valid entries are 1, 2 and 4
         :param entries_per_chunk: entries per chunk file
+        :param gzip_level: level of gzip compression. Leave at 0 (default) to disable compression.
         :return: new variable length series
         :raises AlreadyExists: series with given name already exists
         """
@@ -166,7 +168,8 @@ cdef class Database:
         cdef VarlenSeries series = create_varlen_series(os.path.join(self.path, name), name,
                                                         size_struct,
                                                         length_profile,
-                                                        entries_per_chunk)
+                                                        entries_per_chunk,
+                                                        gzip_level=gzip_level)
         self.open_varlen_series[name] = series
         return series
 

@@ -5,6 +5,8 @@ cdef class ReadWriteGzipFile:
         int compress_level
         object lock
         unsigned long pointer
+        unsigned long size
+        bint needs_flush_before_read
 
-    cdef int reopen_read(self) except -1
+    cpdef int flush(self) except -1
 

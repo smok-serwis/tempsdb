@@ -55,6 +55,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 * if mmap is used, the kernel will be informed after loading the chunk that we 
   don't need it's memory right now
+* deleting a `TimeSeries` will now correctly return a zero
 * both `Database`, `TimeSeries` and `Chunk` destructor will close and 
   emit a warning if the user forgot to
 * if page_size is default, it won't be written as part of the metadata
@@ -63,7 +64,7 @@ Then copy your resulting wheel and install it via pip on the target system.
     * added `append_padded`
     * added metadata support, `metadata` property and `set_metadata` call
 * added variable length series
-* added experimental support for gzipping (constant-length series only for now)
+* added experimental support for gzipping time series
 * fixed a bug where getting a series that was already closed would TypeError
 * following additions to `Chunk`:
     * `get_slice_of_piece_at`

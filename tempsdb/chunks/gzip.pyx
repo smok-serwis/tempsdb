@@ -6,40 +6,35 @@ cdef class ReadWriteGzipFile:
     def __init__(self, path: str, compresslevel: int = gzip._COMPRESS_LEVEL_FAST):
         self.path = path
         self.compress_level = compresslevel
-        self.ro_file = gzip.GzipFile(path, 'rb', compresslevel=self.compress_level)
+        self.ro_file = gzip.GzipFile(path, 'rb')
         self.rw_file = gzip.GzipFile(path, 'ab', compresslevel=self.compress_level)
         self.pointer = 0
         self.lock = threading.RLock()
-
-    def flush(self):
-        self.rw_file.flush()
-        self.reopen_read()
-
-    def size(self):
-        cdef:
-            bytes b
-        with self.lock:
-            self.seek(0, 0)
+        self.needs_flush_before_read = False
+        cdef bytes b
+        b = self.read(128)
+        while b:
             b = self.read(128)
-            while b:
-                b = self.read(128)
-        return self.pointer
+        self.size = self.pointer
+
+    cpdef int flush(self) except -1:
+        self.rw_file.flush()
+        self.ro_file.close()
+        self.ro_file = gzip.GzipFile(self.path, 'rb')
+        self.pointer = 0
+        self.needs_flush_before_read = False
+        return 0
 
     def close(self):
         with self.lock:
-            self.ro_file.close()
             self.rw_file.close()
-
-    cdef int reopen_read(self) except -1:
-        with self.lock:
             self.ro_file.close()
-            self.ro_file = gzip.GzipFile(self.path, 'rb', compresslevel=self.compress_level)
-            self.pointer = 0
-        return 0
 
     def read(self, int maxinplen):
         cdef bytes b
         with self.lock:
+            if self.needs_flush_before_read:
+                self.flush()
             b = self.ro_file.read(maxinplen)
             self.pointer += len(b)
         return b
@@ -52,17 +47,22 @@ cdef class ReadWriteGzipFile:
         """
         with self.lock:
             self.rw_file.write(value)
-            self.reopen_read()
+            self.size += len(value)
+            self.needs_flush_before_read = True
 
     def seek(self, unsigned long pos, int mode):
+        if self.needs_flush_before_read:
+            self.flush()
         if mode == 2:
-            self.pointer = self.size()-pos
-            self.ro_file.seek(self.pointer, 0)
-        else:
+            self.seek(self.size-pos, 0)
+        elif mode == 0:
             if pos != self.pointer:
-                self.ro_file.seek(pos, mode)
-                if mode == 0:
-                    self.pointer = pos
+                self.ro_file.seek(pos, 0)
+                self.pointer = pos
+        elif mode == 1:
+            raise NotImplementedError('Unimplemented seek mode')
+        else:
+            raise ValueError('Invalid seek mode')
 
     def tell(self):
         return self.pointer

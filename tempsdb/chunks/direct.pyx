@@ -3,8 +3,8 @@ import typing as tp
 import struct
 import warnings
 
-from tempsdb.chunks.gzip import ReadWriteGzipFile
 from ..series cimport TimeSeries
+from .gzip cimport ReadWriteGzipFile
 from .base cimport Chunk
 
 
@@ -64,12 +64,11 @@ cdef class DirectChunk(Chunk):
         else:
             return super().open_file(path)
 
-    cpdef int extend(self) except -1:
-        return 0
-
     cpdef int after_init(self) except -1:
+        cdef ReadWriteGzipFile rw_gz
         if isinstance(self.file, ReadWriteGzipFile):
-            self.file_size = self.file.size()
+            rw_gz = self.file
+            self.file_size = rw_gz.size
         else:
             self.file.seek(0, os.SEEK_END)
             self.file_size = self.file.tell()
@@ -87,7 +86,8 @@ cdef class DirectChunk(Chunk):
             self.file_lock_object.acquire()
         try:
             self.file_size += self.block_size_plus
-            self.file.seek(self.pointer, 0)
+            if not isinstance(self.file, ReadWriteGzipFile):
+                self.file.seek(self.pointer, 0)
             b = STRUCT_Q.pack(timestamp) + data
             self.file.write(b)
             self.mmap.resize(self.file_size)
