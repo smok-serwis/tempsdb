@@ -61,6 +61,7 @@ Then copy your resulting wheel and install it via pip on the target system.
     * added `append_padded`
     * added metadata support, `metadata` property and `set_metadata` call
 * added variable length series
+* added experimental support for gzipping (constant-length series only for now)
 * fixed a bug where getting a series that was already closed would TypeError
 * following additions to `Chunk`:
     * `get_slice_of_piece_at`

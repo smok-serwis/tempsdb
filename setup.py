@@ -2,6 +2,7 @@ import os
 import typing as tp
 
 from Cython.Build import cythonize
+from satella.distutils import monkey_patch_parallel_compilation
 from satella.files import find_files
 from distutils.core import setup
 
@@ -27,7 +28,7 @@ if 'CI' in os.environ:
 
 
 setup(name='tempsdb',
-      version='0.5.0_a1',
+      version='0.5.0a8',
       packages=['tempsdb'],
       install_requires=['satella>=2.14.21', 'ujson'],
       ext_modules=build([Multibuild('tempsdb', find_pyx('tempsdb')), ],

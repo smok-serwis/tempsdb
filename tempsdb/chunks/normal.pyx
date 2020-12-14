@@ -6,8 +6,8 @@ import struct
 import mmap
 import warnings
 
-from .exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
-from .series cimport TimeSeries
+from ..exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
+from ..series cimport TimeSeries
 
 DEF HEADER_SIZE = 4
 DEF TIMESTAMP_SIZE = 8
@@ -134,17 +134,6 @@ cdef class Chunk:
         self.mmap = AlternativeMMap(self.file, self.file_lock_object)
         return 0
 
-    cdef void incref(self):
-        if self.parent is not None:
-            self.parent.incref_chunk(self.min_ts)
-
-    cdef int decref(self) except -1:
-        if self.parent is not None:
-            self.parent.decref_chunk(self.name())
-            if self.parent.get_references_for(self.name()) < 0:
-                raise ValueError('reference of chunk fell below zero!')
-        return 0
-
     def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
                  use_descriptor_access: bool = False):
         cdef bytes b
@@ -189,111 +178,6 @@ cdef class Chunk:
             # Inform the OS that we don't need the header anymore
             self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
 
-    cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1:
-        """
-        Return a particular byte of given element at given index.
-        
-        When index is negative, or larger than block_size, the behaviour is undefined
-        
-        :param index: index of the element
-        :param byte_index: index of the byte
-        :return: value of the byte
-        :raises ValueError: index too large
-        """
-        if index > self.entries:
-            raise ValueError('index too large')
-        cdef:
-            unsigned long offset = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + byte_index
-        return self.mmap[offset]
-
-    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start):
-        """
-        Return a slice of data from given element starting at given index to the end
-        
-        :param index: index of the element
-        :param start: starting index
-        :return: a byte slice
-        """
-        return self.get_slice_of_piece_at(index, start, self.block_size)
-
-    cpdef bytes get_slice_of_piece_at(self, unsigned int index, int start, int stop):
-        """
-        Return a slice of data from given element
-        
-        :param index: index of the element
-        :param start: starting offset of data
-        :param stop: stopping offset of data
-        :return: a byte slice
-        """
-        if index >= self.entries:
-            raise IndexError('Index too large')
-        cdef:
-            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + start
-            unsigned long stopping_index = starting_index + stop
-        return self.mmap[starting_index:stopping_index]
-
-    cpdef unsigned long long get_timestamp_at(self, unsigned int index):
-        """
-        Return a timestamp at a particular location
-        
-        Passing an invalid index will result in an undefined behaviour.
-        
-        :param index: index of element
-        :return: the timestamp
-        """
-        cdef:
-            unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
-            unsigned long stopping_index = starting_index + TIMESTAMP_SIZE
-        return STRUCT_Q.unpack(self.mmap[starting_index:stopping_index])[0]
-
-    cpdef unsigned int find_left(self, unsigned long long timestamp):
-        """
-        Return an index i of position such that ts[i] <= timestamp and
-        (timestamp-ts[i]) -> min.
-        
-        Used as bound in searches: you start from this index and finish at 
-        :meth:`~tempsdb.chunks.Chunk.find_right`.
-        
-        :param timestamp: timestamp to look for, must be smaller or equal to largest element
-            in the chunk
-        :return: index such that ts[i] <= timestamp and (timestamp-ts[i]) -> min, or length of the 
-            array if timestamp is larger than largest element in this chunk
-        """
-        cdef:
-            unsigned int hi = self.length()
-            unsigned int lo = 0
-            unsigned int mid
-        while lo < hi:
-            mid = (lo+hi)//2
-            if self.get_timestamp_at(mid) < timestamp:
-                lo = mid+1
-            else:
-                hi = mid
-        return lo
-
-    cpdef unsigned int find_right(self, unsigned long long timestamp):
-        """
-        Return an index i of position such that ts[i] > timestamp and
-        (ts[i]-timestamp) -> min
-        
-        Used as bound in searches: you start from 
-        :meth:`~tempsdb.chunks.Chunk.find_right` and finish at this inclusive. 
-        
-        :param timestamp: timestamp to look for
-        :return: index such that ts[i] > timestamp and (ts[i]-timestamp) -> min
-        """
-        cdef:
-            unsigned int hi = self.length()
-            unsigned int lo = 0
-            unsigned int mid
-        while lo < hi:
-            mid = (lo+hi)//2
-            if timestamp < self.get_timestamp_at(mid):
-                hi = mid
-            else:
-                lo = mid+1
-        return lo
-
     def __getitem__(self, index: tp.Union[int, slice]):
         if isinstance(index, slice):
             return self.iterate_range(index.start, index.stop)
@@ -331,14 +215,6 @@ cdef class Chunk:
             if self.file_lock_object:
                 self.file_lock_object.release()
 
-    cpdef int delete(self) except -1:
-        """
-        Close and delete this chunk.
-        """
-        self.close()
-        os.unlink(self.path)
-        return 0
-
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         """
         Append a record to this chunk.
@@ -371,22 +247,6 @@ cdef class Chunk:
         self.max_ts = timestamp
         self.pointer += self.block_size_plus
         return 0
-
-    cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
-        """
-        Return a partial iterator starting at starting_entry and ending at stopping_entry (exclusive).
-        
-        :param starting_entry: index of starting entry
-        :param stopping_entry: index of stopping entry
-        :return: an iterator
-        :rtype: tp.Iterator[tp.Tuple[int, bytes]]
-        """
-        return self._iterate(starting_entry, stopping_entry)
-
-    def _iterate(self, starting_entry: int, stopping_entry: int):
-        cdef int i
-        for i in range(starting_entry, stopping_entry):
-            yield self.get_piece_at(i)
 
     def __iter__(self) -> tp.Iterator[tp.Tuple[int, bytes]]:
         return self._iterate(0, self.entries)
@@ -421,35 +281,6 @@ cdef class Chunk:
             return
         warnings.warn('You forgot to close a Chunk')
         self.close()
-
-    cpdef bytes get_value_at(self, unsigned int index):
-        """
-        Return only the value at a particular index, numbered from 0
-        
-        :return: value at given index
-        """
-        if index >= self.entries:
-            raise IndexError('Index too large')
-        cdef:
-            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus
-            unsigned long stopping_index = starting_index + self.block_size
-        return self.mmap[starting_index:stopping_index]
-
-    cdef tuple get_piece_at(self, unsigned int index):
-        """
-        Return a piece of data at a particular index, numbered from 0
-        
-        :return: at piece of data at given index
-        :rtype: tp.Tuple[int, bytes]
-        """
-        if index >= self.entries:
-            raise IndexError('Index too large')
-        cdef:
-            unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
-            unsigned long stopping_index = starting_index + self.block_size_plus
-            unsigned long long ts = STRUCT_Q.unpack(
-                self.mmap[starting_index:starting_index+TIMESTAMP_SIZE])[0]
-        return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]
 
 
 cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,

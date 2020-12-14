@@ -25,6 +25,13 @@ So no variable encoding for you!
 When mmap fails due to memory issues, this falls back to slower fwrite()/fread() implementation.
 You can also manually select the descriptor-based implementation if you want to.
 
+.. versionadded:: 0.5
+
+Experimental support for gzipping time series is added. Note that reading from gzipped files is for now
+slow, as every seek requires reading the file from the beginning.
+
+Warnings will be issued while using gzipped series to remind you of this fact.
+
 Indices and tables
 ==================
 

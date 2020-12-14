@@ -107,8 +107,6 @@ cdef class TimeSeries:
             raise DoesNotExist('Chosen time series does not exist')
 
         cdef:
-            str metadata_s = read_in_file(os.path.join(self.path, METADATA_FILE_NAME),
-                                         'utf-8', 'invalid json')
             dict metadata
             str filename
             list files = os.listdir(self.path)
@@ -469,12 +467,12 @@ cdef class TimeSeries:
                     self.decref_chunk(self.last_chunk.name())
                 self.last_chunk = create_chunk(self, os.path.join(self.path, str(timestamp)),
                                                timestamp, data, self.page_size,
-                                               descriptor_based_access=is_descriptor,
-                                               use_direct_mode=is_descriptor,
+                                               descriptor_based_access=self.descriptor_based_access,
+                                               use_direct_mode=bool(self.gzip_level),
                                                gzip_compression_level=self.gzip_level)
                 self.open_chunks[timestamp] = self.last_chunk
                 self.incref_chunk(timestamp)
-                self.chunks.append((timestamp, is_descriptor, bool(self.gzip_level)))
+                self.chunks.append((timestamp, bool(self.gzip_level), bool(self.gzip_level)))
             else:
                 self.last_chunk.append(timestamp, data)
             self.last_entry_ts = timestamp
@@ -514,19 +512,19 @@ cdef class TimeSeries:
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
                                int max_entries_per_chunk, int page_size=DEFAULT_PAGE_SIZE,
-                               bint use_descriptor_based_access=False):
-                               int max_entries_per_chunk, int page_size=4096,
                                bint use_descriptor_based_access=False,
                                int gzip_level=0):
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
-
+    os.mkdir(path)
     cdef dict meta = {
             'block_size': block_size,
             'max_entries_per_chunk': max_entries_per_chunk,
-            'last_entry_synced': 0,
-            'page_size': page_size,
-            'gzip_level': gzip_level
-            }, f_out
-        )
+            'last_entry_synced': 0
+    }
+    if page_size != DEFAULT_PAGE_SIZE:
+        meta['page_size'] = page_size
+    if gzip_level:
+        meta['gzip_level'] = gzip_level
+    write_json_to_file(os.path.join(path, 'metadata.txt'), meta)
     return TimeSeries(path, name)

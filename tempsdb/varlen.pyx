@@ -4,7 +4,7 @@ import typing as tp
 import struct
 import warnings
 
-from .chunks cimport Chunk
+from .chunks.base cimport Chunk
 from .exceptions import Corruption, AlreadyExists, StillOpen
 from .iterators cimport Iterator
 from .series cimport TimeSeries, create_series

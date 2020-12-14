@@ -22,9 +22,14 @@ cdef class Chunk:
         object file, mmap, file_lock_object
         bint closed
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
-    cpdef int close(self) except -1
+    cpdef int close(self, bint force=*) except -1
     cdef tuple get_piece_at(self, unsigned int index)
     cdef int sync(self) except -1
+    cpdef unsigned long long get_timestamp_at(self, unsigned int index)
+    cpdef bytes get_value_at(self, unsigned int index)
+    cpdef bytes get_slice_of_piece_at(self, unsigned int index, int start, int stop)
+    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start)
+    cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1
     cpdef unsigned int find_left(self, unsigned long long timestamp)
     cpdef unsigned int find_right(self, unsigned long long timestamp)
     cpdef object open_file(self, str path)
@@ -34,6 +39,8 @@ cdef class Chunk:
     cpdef int delete(self) except -1
     cpdef int switch_to_descriptor_based_access(self) except -1
     cpdef unsigned long get_mmap_size(self)
+    cdef void incref(self)
+    cdef int decref(self) except -1
 
     cdef inline unsigned long long name(self):
         """
@@ -48,5 +55,3 @@ cdef class Chunk:
         :rtype: int 
         """
         return self.entries
-
-    cdef unsigned long long get_timestamp_at(self, unsigned int index)
