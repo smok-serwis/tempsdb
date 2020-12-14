@@ -152,7 +152,7 @@ cdef class TimeSeries:
                     filename = filename.replace('.direct', '')
                 is_direct |= is_gzip
                 try:
-                    self.chunks.append(int(filename))
+                    self.chunks.append((int(filename), is_direct, is_gzip))
                 except ValueError:
                     raise Corruption('Detected invalid file "%s"' % (filename, ))
             self.chunks.sort()
