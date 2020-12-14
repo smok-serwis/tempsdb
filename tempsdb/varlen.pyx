@@ -435,6 +435,26 @@ cdef class VarlenSeries:
         """
         return VarlenIterator(self, start, stop, direct_bytes=direct_bytes)
 
+    cpdef tuple get_current_value(self):
+        """
+        Return latest value of this series
+                        
+        :return: tuple of (timestamp, value)
+        :rtype: tp.Tuple[int, bytes]
+        :raises ValueError: series has no data
+        """
+        if self.root_series.last_chunk is None:
+            raise ValueError('No data in series')
+        cdef:
+            VarlenIterator it = self.iterate_range(self.root_series.last_entry_ts,
+                                             self.root_series.last_entry_ts)
+            VarlenEntry et = it.get_next()
+        try:
+            return et.timestamp(), et.to_bytes()
+        finally:
+            et.close()
+            it.close()
+
     def __init__(self, path: str, name: str):
         self.closed = False
         self.path = path

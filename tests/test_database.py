@@ -16,6 +16,7 @@ class TestDatabase(unittest.TestCase):
         ser.close()
 
         ser = self.db.get_series('hello-world')
+        self.assertEqual(ser.get_current_value(), (20, b'\x00'))
         self.assertEqual(ser.last_entry_ts, 20)
         ser.close()
 
@@ -29,6 +30,7 @@ class TestDatabase(unittest.TestCase):
         ser.close()
 
         ser = self.db.get_varlen_series('hello-world')
+        self.assertEqual(ser.get_current_value(), (20, b'\x00\x00\x00'))
         self.assertEqual(ser.last_entry_ts, 20)
         ser.close()
 

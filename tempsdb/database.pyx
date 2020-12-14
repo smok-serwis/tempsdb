@@ -56,7 +56,9 @@ cdef class Database:
 
     cpdef int delete_series(self, str name) except -1:
         """
-        Deletes a constant-length time series
+        Deletes a constant-length time series.
+        
+        Note that the series must either not be open, or closed.
         
         :param name: name of series to delete
         :raises ValueError: tried to delete "varlen" series
@@ -77,7 +79,9 @@ cdef class Database:
 
     cpdef int delete_varlen_series(self, str name) except -1:
         """
-        Deletes a variable-length time series
+        Deletes a variable-length time series.
+        
+        Note that the series must either not be open, or closed.
         
         :param name: name of series to delete
         :raises DoesNotExist: series does not exist

@@ -1,4 +1,4 @@
-from .series cimport TimeSeries, create_series
+from .series cimport TimeSeries
 
 
 cdef class VarlenSeries:
@@ -20,6 +20,7 @@ cdef class VarlenSeries:
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int close(self) except -1
     cpdef int delete(self) except -1
+    cpdef tuple get_current_value(self)
     cdef int get_length_for(self, int index)
     cpdef int trim(self, unsigned long long timestamp) except -1
     cdef int add_series(self) except -1
