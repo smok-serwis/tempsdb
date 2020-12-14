@@ -433,6 +433,12 @@ cdef class VarlenSeries:
                                        bint direct_bytes=False):
         """
         Return an iterator with the data
+        
+        :param start: timestamp to start iterating
+        :param stop: timestamp to stop iterating at
+        :param direct_bytes: whether to return a tuple of (int, bytes) instead of 
+            (int, :class:`~tempsdb.varlen.VarlenEntry`)
+        :return: a :class:`~tempsdb.varlen.VarlenIterator` instance
         """
         return VarlenIterator(self, start, stop, direct_bytes=direct_bytes)
 
