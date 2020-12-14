@@ -1,10 +1,11 @@
 import os
+import shutil
 import threading
 import warnings
 
 from satella.coding import DictDeleter
 
-from tempsdb.exceptions import DoesNotExist, AlreadyExists
+from tempsdb.exceptions import DoesNotExist, AlreadyExists, StillOpen
 from .series cimport TimeSeries, create_series
 from .varlen cimport VarlenSeries, create_varlen_series
 
@@ -52,6 +53,47 @@ cdef class Database:
                     else:
                         output.append(series)
         return output
+
+    cpdef int delete_series(self, str name) except -1:
+        """
+        Deletes a constant-length time series
+        
+        :param name: name of series to delete
+        :raises ValueError: tried to delete "varlen" series
+        :raises StillOpen: series is open
+        """
+        if name == 'varlen':
+            raise ValueError('tried to delete varlen series')
+        if not os.path.exists(os.path.join(self.path, name)):
+            raise DoesNotExist('series does not exist')
+        cdef TimeSeries series
+        with self.lock:
+            if name in self.open_series:
+                series = self.open_series[name]
+                if not series.closed:
+                    raise StillOpen('series is open!')
+            shutil.rmtree(os.path.join(self.path, name))
+            return 0
+
+    cpdef int delete_varlen_series(self, str name) except -1:
+        """
+        Deletes a variable-length time series
+        
+        :param name: name of series to delete
+        :raises DoesNotExist: series does not exist
+        :raises StillOpen: series is open
+        """
+        cdef str path = os.path.join(self.path, 'varlen', name)
+        if not os.path.exists(path):
+            raise DoesNotExist('series does not exist')
+        cdef VarlenSeries series
+        with self.lock:
+            if name in self.open_varlen_series:
+                series = self.open_varlen_series[name]
+                if not series.closed:
+                    raise StillOpen('series is open!')
+            shutil.rmtree(path)
+            return 0
 
     cpdef TimeSeries get_series(self, name: str, bint use_descriptor_based_access = False):
         """
@@ -207,7 +249,9 @@ cdef class Database:
                                    bint use_descriptor_based_access=False,
                                    int gzip_level=0):
         """
-        Create a new series
+        Create a new series.
+        
+        Note that series cannot be named "varlen"
         
         :param name: name of the series
         :param block_size: size of the data field
@@ -217,11 +261,14 @@ cdef class Database:
             Default is False
         :param gzip_level: gzip compression level. Default is 0 which means "don't use gzip"
         :return: new series
-        :raises ValueError: block size was larger than page_size plus a timestamp
+        :raises ValueError: block size was larger than page_size plus a timestamp or series was named 
+            "varlen"
         :raises AlreadyExists: series with given name already exists
         """
         if block_size > page_size + 8:
             raise ValueError('Invalid block size, pick larger page')
+        if name == 'varlen':
+            raise ValueError('Series cannot be named varlen')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
         if gzip_level:

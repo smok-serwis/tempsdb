@@ -61,6 +61,9 @@ Then copy your resulting wheel and install it via pip on the target system.
   emit a warning if the user forgot to
 * if page_size is default, it won't be written as part of the metadata
 * added support for per-series metadata
+* following additions to `Database`:
+    * `delete_series`
+    * `delete_varlen_series`
 * following additions to `TimeSeries`:
     * added `append_padded`
     * added metadata support, `metadata` property and `set_metadata` call
