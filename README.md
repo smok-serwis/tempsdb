@@ -53,6 +53,8 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.5
 
+* if mmap is used, the kernel will be informed after loading the chunk that we 
+  don't need it's memory right now
 * both `Database`, `TimeSeries` and `Chunk` destructor will close and 
   emit a warning if the user forgot to
 * if page_size is default, it won't be written as part of the metadata

@@ -1,4 +1,3 @@
-import gzip
 import os
 import typing as tp
 import struct
@@ -69,8 +68,11 @@ cdef class DirectChunk(Chunk):
         return 0
 
     cpdef int after_init(self) except -1:
-        self.file.seek(0, os.SEEK_END)
-        self.file_size = self.file.tell()
+        if isinstance(self.file, ReadWriteGzipFile):
+            self.file_size = self.file.size()
+        else:
+            self.file.seek(0, os.SEEK_END)
+            self.file_size = self.file.tell()
         self.entries = (self.file_size - HEADER_SIZE) // self.block_size_plus
         self.pointer = self.file_size
         d = (self.file_size - self.block_size) - (self.file_size-self.block_size_plus)
@@ -90,6 +92,7 @@ cdef class DirectChunk(Chunk):
             self.file.write(b)
             self.mmap.resize(self.file_size)
             self.pointer += self.block_size_plus
+            self.entries += 1
         finally:
             if self.file_lock_object:
                 self.file_lock_object.release()

@@ -1,9 +1,6 @@
 import os
 import unittest
 
-from tempsdb.chunks.base import Chunk
-from tempsdb.chunks.maker import create_chunk
-
 
 class TestDB(unittest.TestCase):
     def test_write_series(self):
@@ -70,10 +67,13 @@ class TestDB(unittest.TestCase):
         self.assertLessEqual(items[-1][0], stop)
 
     def test_chunk_alternative(self):
+        from tempsdb.chunks.normal import NormalChunk
+        from tempsdb.chunks.maker import create_chunk
+
         data = [(0, b'ala '), (1, b'ma  '), (4, b'kota')]
         chunk = create_chunk(None, 'chunk_a.db', 0, b'ala ', 4096)
         chunk.close()
-        chunk = Chunk(None, 'chunk_a.db', 4096, use_descriptor_access=True)
+        chunk = NormalChunk(None, 'chunk_a.db', 4096, use_descriptor_access=True)
         chunk.append(1, b'ma  ')
         chunk.append(4, b'kota')
         self.assertEqual(chunk.min_ts, 0)
@@ -103,6 +103,8 @@ class TestDB(unittest.TestCase):
         self.assertEqual(os.path.getsize('chunk.db'), 8192)
 
     def test_chunk(self):
+        from tempsdb.chunks.maker import create_chunk
+
         data = [(0, b'ala '), (1, b'ma  '), (4, b'kota')]
         chunk = create_chunk(None, 'chunk.db', 0, b'ala ', 4096)
         chunk.append(1, b'ma  ')

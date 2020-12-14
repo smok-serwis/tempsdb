@@ -4,6 +4,7 @@ import threading
 import typing as tp
 import struct
 import mmap
+import warnings
 
 from .gzip cimport ReadWriteGzipFile
 from ..exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
@@ -43,25 +44,35 @@ cdef class AlternativeMMap:
             self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
-    def __getitem__(self, item: slice) -> bytes:
+    def __getitem__(self, item: tp.Union[int, slice]) -> tp.Union[int, bytes]:
         cdef:
             unsigned long start = item.start
             unsigned long stop = item.stop
             bytes b
-
         with self.file_lock_object:
-            if start != self.io.tell():
+            if isinstance(item, int):
+                self.io.seek(item, 0)
+                b = self.io.read(1)
+                return b[0]
+            else:
+                start = item.start
+                stop = item.stop
                 self.io.seek(start, 0)
-            return self.io.read(stop-start)
+                return self.io.read(stop-start)
 
-    def __setitem__(self, key: slice, value: bytes):
+    def __setitem__(self, key: tp.Union[int, slice], value: tp.Union[int, bytes]) -> None:
         cdef:
             unsigned long start = key.start
+        if isinstance(key, int):
+            self[key:key+1] = bytes([value])
+        else:
+            with self.file_lock_object:
+                if not isinstance(self.io, ReadWriteGzipFile):
+                    self.io.seek(start, 0)
+                self.io.write(value)
 
-        with self.file_lock_object:
-            if not isinstance(self.io, ReadWriteGzipFile):
-                self.io.seek(0, 2)
-            self.io.write(value)
+    def close(self):
+        pass
 
     def close(self):
         pass
@@ -101,6 +112,30 @@ cdef class Chunk:
             return 0
         else:
             return self.file_size
+
+    cpdef int switch_to_mmap_based_access(self) except -1:
+        """
+        Switch self to mmap-based access instead of descriptor-based.
+        
+        No-op if already in mmap mode.
+        
+        :raises Corruption: unable to mmap file due to an unrecoverable error
+        """
+        if isinstance(self.mmap, AlternativeMMap):
+            try:
+                self.mmap = mmap.mmap(self.file.fileno(), 0)
+                self.file_lock_object = None
+            except OSError as e:
+                if e.errno in (11,      # EAGAIN - memory is too low
+                               12,      # ENOMEM - no memory space available
+                               19,      # ENODEV - fs does not support mmapping
+                               75):     # EOVERFLOW - too many pages would have been used
+                    pass
+                else:
+                    self.file.close()
+                    self.closed = True
+                    raise Corruption(f'Failed to mmap chunk file: {e}')
+        return 0
 
     cpdef int switch_to_descriptor_based_access(self) except -1:
         """
@@ -171,6 +206,10 @@ cdef class Chunk:
         self.pointer = 0
 
         self.after_init()
+
+        if self.pointer >= self.page_size:
+            # Inform the OS that we don't need the header anymore
+            self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
 
     cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1:
         """
@@ -291,22 +330,8 @@ cdef class Chunk:
         return 0
 
     cpdef int extend(self) except -1:
-        """
-        Adds PAGE_SIZE bytes to this file
-        """
-        cdef bytearray ba
-        if self.file_lock_object:
-            self.file_lock_object.acquire()
-        try:
-            self.mmap.seek(self.file_size)
-            self.file_size += self.page_size
-            ba = bytearray(self.page_size)
-            ba[self.page_size-FOOTER_SIZE:self.page_size] = STRUCT_L.pack(self.entries)
-            self.file.write(ba)
-            self.mmap.resize(self.file_size)
-        finally:
-            if self.file_lock_object:
-                self.file_lock_object.release()
+        raise NotImplementedError('Abstract method!')
+        return 0
 
     cpdef int delete(self) except -1:
         """
@@ -332,21 +357,7 @@ cdef class Chunk:
         :param data: data to write
         :raises InvalidState: chunk is closed
         """
-        if self.closed:
-            raise InvalidState('chunk is closed')
-
-        if self.pointer >= self.file_size-FOOTER_SIZE-self.block_size_plus:
-            self.extend()
-        cdef unsigned long long ptr_end = self.pointer + TIMESTAMP_SIZE
-        # Append entry
-        cdef bytes b = STRUCT_Q.pack(timestamp) + data
-        self.mmap[self.pointer:ptr_end+self.block_size] = b
-        self.entries += 1
-        # Update entries count
-        self.mmap[self.file_size-FOOTER_SIZE:self.file_size] = STRUCT_L.pack(self.entries)
-        # Update properties
-        self.max_ts = timestamp
-        self.pointer += self.block_size_plus
+        raise NotImplementedError('Abstract method!')
         return 0
 
     cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
@@ -398,21 +409,29 @@ cdef class Chunk:
     cpdef int close(self, bint force=False) except -1:
         """
         Close the chunk and close the allocated resources
+        
+        :param force: whether to close the chunk even if it's open somewhere
+        :raises StillOpen: this chunk has a parent attached and the parent
+            says that this chunk is still being referred to
         """
         if self.closed:
             return 0
         cdef unsigned long long name = self.name()
         if self.parent:
             with self.parent.open_lock:
-                if self.parent.get_references_for(name) and not force:
-                    raise StillOpen('chunk still open!')
+                if not force and self.parent.get_references_for(name) > 0:
+                    raise StillOpen('this chunk is opened')
+                del self.parent.refs_chunks[name]
                 del self.parent.open_chunks[name]
         self.parent = None
         self.mmap.close()
         self.file.close()
         return 0
 
-    def __del__(self):
+    def __del__(self) -> None:
+        if self.closed:
+            return
+        warnings.warn('You forgot to close a Chunk')
         self.close()
 
     cdef tuple get_piece_at(self, unsigned int index):
@@ -423,7 +442,8 @@ cdef class Chunk:
         :rtype: tp.Tuple[int, bytes]
         """
         if index >= self.entries:
-            raise IndexError('Index too large')
+            raise IndexError('Index too large, got %s while max entries is %s' % (index,
+                                                                                  self.entries))
         cdef:
             unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
             unsigned long stopping_index = starting_index + self.block_size_plus

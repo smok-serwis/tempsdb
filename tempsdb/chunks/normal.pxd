@@ -1,50 +1,6 @@
-from ..series cimport TimeSeries
+from .base cimport Chunk
 
 
-cdef class AlternativeMMap:
-    cdef:
-        object io, file_lock_object
-        unsigned long size
-
-
-cdef class Chunk:
-    cdef:
-        TimeSeries parent
-        readonly str path
-        readonly unsigned long long min_ts
-        readonly unsigned long long max_ts
-        unsigned int block_size_plus        # block size plus timestamp length
-        readonly unsigned int block_size
-        readonly unsigned long entries
-        unsigned long file_size
-        unsigned long pointer       # position to write next entry at
-        readonly unsigned long page_size
-        object file, mmap, file_lock_object
-        bint closed
-
-    cpdef int close(self, bint force=*) except -1
+cdef class NormalChunk(Chunk):
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
-    cdef int sync(self) except -1
-    cdef int extend(self) except -1
-    cpdef int switch_to_descriptor_based_access(self) except -1
-    cpdef int switch_to_mmap_based_access(self) except -1
-    cpdef unsigned long get_mmap_size(self)
-
-    cdef inline unsigned long long name(self):
-        """
-        :return: the name of this chunk
-        :rtype: int 
-        """
-        return self.min_ts
-
-    cdef inline int length(self):
-        """
-        :return: amount of entries in this chunk
-        :rtype: int 
-        """
-        return self.entries
-
-
-cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
-                         bytes data, int page_size,
-                         bint descriptor_based_access=*)
+    cpdef int extend(self) except -1

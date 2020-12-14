@@ -4,11 +4,14 @@ import struct
 
 from tempsdb.exceptions import AlreadyExists
 from .base cimport Chunk
+from .normal cimport NormalChunk
 from .direct cimport DirectChunk
 from ..series cimport TimeSeries
 
+
 STRUCT_Q = struct.Struct('<Q')
 STRUCT_L = struct.Struct('<L')
+
 
 cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timestamp,
                          bytes data, int page_size, bint descriptor_based_access=False,
@@ -76,5 +79,5 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
             return DirectChunk(parent, original_path, page_size,
                                use_descriptor_access=descriptor_based_access)
         else:
-            return Chunk(parent, original_path, page_size, use_descriptor_access=descriptor_based_access)
+            return NormalChunk(parent, original_path, page_size, use_descriptor_access=descriptor_based_access)
 

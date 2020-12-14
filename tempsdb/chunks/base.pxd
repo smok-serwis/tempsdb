@@ -38,6 +38,7 @@ cdef class Chunk:
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
     cpdef int delete(self) except -1
     cpdef int switch_to_descriptor_based_access(self) except -1
+    cpdef int switch_to_mmap_based_access(self) except -1
     cpdef unsigned long get_mmap_size(self)
     cdef void incref(self)
     cdef int decref(self) except -1

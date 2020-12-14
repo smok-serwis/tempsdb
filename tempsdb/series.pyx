@@ -6,8 +6,9 @@ import warnings
 from satella.json import write_json_to_file, read_json_from_file
 
 from .chunks.base cimport Chunk
-from .chunks.maker cimport create_chunk
+from .chunks.normal cimport NormalChunk
 from .chunks.direct cimport DirectChunk
+from .chunks.maker cimport create_chunk
 from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 import os
 
@@ -194,7 +195,7 @@ cdef class TimeSeries:
                                         use_descriptor_access=True,
                                         gzip_compression_level=self.gzip_level if is_gzip else 0)
                 else:
-                    chunk = Chunk(self,
+                    chunk = NormalChunk(self,
                                   os.path.join(self.path, str(name)),
                                   self.page_size,
                                   use_descriptor_access=self.descriptor_based_access)
