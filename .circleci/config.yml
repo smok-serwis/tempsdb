@@ -26,7 +26,7 @@ jobs:
       - run:
           name: Send back coverage results
           command: |
-            coverage xml
+            python -m coverage xml
             ./cc-test-reporter after-build -t coverage.py -r "221b151c896ec22d8fcb5e522aed25c52e7a9515e59390aa200131b890b718d5"
 workflows:
   main:

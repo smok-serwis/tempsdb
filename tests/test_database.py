@@ -13,3 +13,11 @@ class TestDatabase(unittest.TestCase):
         ser.append(10, b'\x00')
         ser.append(20, b'\x00')
         ser.close()
+
+        ser = self.db.get_series('hello-world')
+        self.assertEqual(ser.last_entry_ts, 20)
+        ser.close()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.db.close()
