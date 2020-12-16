@@ -20,6 +20,7 @@ cdef class VarlenSeries:
 
     cpdef int enable_mmap(self) except -1
     cpdef int disable_mmap(self) except -1
+    cpdef unsigned long open_chunks_mmap_size(self)
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int close(self, bint force=*) except -1
     cpdef int delete(self) except -1

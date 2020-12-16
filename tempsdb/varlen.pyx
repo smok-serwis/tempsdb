@@ -651,6 +651,17 @@ cdef class VarlenSeries:
         """
         return self.length_profile[-1 if index >= len(self.length_profile) else index]
 
+    cpdef unsigned long open_chunks_mmap_size(self):
+        """
+        :return: total area of memory taken by mmaps, in bytes
+        """
+        cdef:
+            unsigned long long total = 0
+            TimeSeries series
+        for series in self.series:
+            total += series.open_chunks_mmap_size()
+        return total
+
     cpdef int close(self, bint force=False) except -1:
         """
         Close this series.

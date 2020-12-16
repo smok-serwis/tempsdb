@@ -230,6 +230,8 @@ cdef class Database:
         :return: new variable length series
         :raises AlreadyExists: series with given name already exists
         """
+        from .varlen import create_varlen_series
+
         cdef:
             VarlenSeries series
             str path = os.path.join(self.path, 'varlen', name)
