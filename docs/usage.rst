@@ -22,11 +22,9 @@ Start off by instantiating an object
 Note that if you specify a `gzip_level` argument in
 :meth:`~tempsdb.database.Database.create_series`, GZIP compression will be used.
 
-Note that gzip-compressed series are very slow to read the first time you open them,
-since an index needs to be built each time that they are seek'ed.
-to start from scratch. This will be fixed in the future.
-
-Random seeks are provided by the indexed-gzip_ library.
+.. warning:: Note that gzip-compressed series are very slow to read, since every `seek` is
+             conducted from the beginning. indexed-gzip_ library hung too often. This will be
+             fixed in the future.
 
 .. _indexed-gzip: https://pypi.org/project/indexed-gzip/
 
