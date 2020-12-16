@@ -52,6 +52,10 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
+## v0.5.4
+
+* _TBA_
+
 ## v0.5.3
 
 * added `disable_mmap`, `enable_mmap` and `open_chunks_mmap_size` into `VarlenSeries`
