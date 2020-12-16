@@ -444,7 +444,7 @@ cdef class VarlenSeries:
         return 0
 
     @property
-    cpdef unsigned long long last_entry_ts(self):
+    def last_entry_ts(self) -> int:
         """
         :return: last entry's timestamp, or barring that a 0
         """
