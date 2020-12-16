@@ -54,7 +54,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.5.3
 
-* _TBA_
+* added `disable_mmap` and `enable_mmap` into `VarlenSeries`
 
 ## v0.5.2
 

@@ -16,7 +16,10 @@ cdef class VarlenSeries:
         int current_maximum_length
         object mpm
         int gzip_level
+        bint mmap_enabled
 
+    cpdef int enable_mmap(self) except -1
+    cpdef int disable_mmap(self) except -1
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int close(self, bint force=*) except -1
     cpdef int delete(self) except -1
@@ -68,4 +71,5 @@ cdef class VarlenEntry:
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,
                                         int max_entries_per_chunk,
+                                        bint use_descriptor_based_access=*,
                                         int gzip_level=*)

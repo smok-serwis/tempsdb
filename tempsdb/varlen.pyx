@@ -486,13 +486,15 @@ cdef class VarlenSeries:
             et.close()
             it.close()
 
-    def __init__(self, path: str, name: str):
+    def __init__(self, path: str, name: str, use_descriptor_based_access: bool = False):
         self.closed = False
+        self.mmap_enabled = not use_descriptor_based_access
         self.path = path
         self.references = 0
         self.mpm = None
         self.name = name
-        self.root_series = TimeSeries(os.path.join(path, 'root'), 'root')
+        self.root_series = TimeSeries(os.path.join(path, 'root'), 'root',
+                                      use_descriptor_based_access=not self.mmap_enabled)
         self.gzip_level = self.root_series.gzip_level
         self.max_entries_per_chunk = self.root_series.max_entries_per_chunk
         try:
@@ -532,9 +534,30 @@ cdef class VarlenSeries:
         for dir_name in sub_series:
             tot_length += self.get_length_for(i)
             i += 1
-            self.series.append(TimeSeries(os.path.join(path, dir_name), dir_name))
+            self.series.append(TimeSeries(os.path.join(path, dir_name), dir_name,
+                                          use_descriptor_based_access=not self.mmap_enabled))
 
         self.current_maximum_length = tot_length
+
+    cpdef int enable_mmap(self) except -1:
+        """
+        Enable using mmap for these series
+        """
+        self.mmap_enabled = True
+        cdef TimeSeries series
+        for series in self.series:
+            series.enable_mmap()
+        return 0
+
+    cpdef int disable_mmap(self) except -1:
+        """
+        Disable using mmap for these series
+        """
+        self.mmap_enabled = False
+        cdef TimeSeries series
+        for series in self.series:
+            series.disable_mmap()
+        return 0
 
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1:
         """
@@ -613,6 +636,7 @@ cdef class VarlenSeries:
                                               new_name_s,
                                               new_len,
                                               self.max_entries_per_chunk,
+                                              use_descriptor_based_access=not self.mmap_enabled,
                                               gzip_level=self.gzip_level)
         if self.mpm is not None:
             series.register_memory_pressure_manager(self.mpm)
@@ -679,6 +703,7 @@ from tempsdb.series cimport TimeSeries
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,
                                         int max_entries_per_chunk,
+                                        bint use_descriptor_based_access=False,
                                         int gzip_level=0):
     """
     Create a variable length series
@@ -688,6 +713,7 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
     :param size_struct: size of the length indicator. Must be one of 1, 2, 3 or 4.
     :param length_profile: series' length profile
     :param max_entries_per_chunk: maximum entries per a chunk file
+    :param use_descriptor_based_access: whether to disable mmap
     :param gzip_level: level of gzip compression. Leave at 0 (default) to disable compression.
     :return: newly created VarlenSeries
     :raises AlreadyExists: directory exists at given path
@@ -707,6 +733,7 @@ cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, lis
                                                 'root',
                                                 size_struct+length_profile[0],
                                                 max_entries_per_chunk,
+                                                use_descriptor_based_access=use_descriptor_based_access,
                                                 gzip_level=gzip_level)
     root_series.set_metadata({'size_field': size_struct,
                               'length_profile': length_profile})
