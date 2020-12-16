@@ -55,6 +55,9 @@ Then copy your resulting wheel and install it via pip on the target system.
 ## v0.5.1
 
 * added `VarlenSeries.close_chunks`
+* `Database.sync` will now return 0
+* indexed-gzip proved to be a poor choice, dropped
+* `setup.py` fixed
 
 ## v0.5
 

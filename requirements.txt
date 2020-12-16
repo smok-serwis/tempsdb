@@ -2,6 +2,5 @@ satella
 ujson
 snakehouse>=1.2.3
 six
-indexed_gzip
 nose2
 coverage

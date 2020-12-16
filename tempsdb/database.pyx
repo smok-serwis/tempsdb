@@ -194,6 +194,7 @@ cdef class Database:
         for series in self.open_series.values():
             if not series.closed:
                 series.sync()
+        return 0
 
     cpdef list get_all_normal_series(self):
         """
