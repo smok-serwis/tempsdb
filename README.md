@@ -51,9 +51,10 @@ python setup.py bdist_wheel
 Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
+
 ## v0.5.2
 
-* _TBA_
+* added multiple properties and attributes to `VarlenSeries`
 
 ## v0.5.1
 

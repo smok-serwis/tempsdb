@@ -7,12 +7,12 @@ cdef class VarlenSeries:
         int size_field
         int references
         object size_struct
-        str path
-        str name
+        readonly str path
+        readonly str name
         TimeSeries root_series
         readonly list series
-        list length_profile
-        int max_entries_per_chunk
+        readonly list length_profile
+        readonly int max_entries_per_chunk
         int current_maximum_length
         object mpm
         int gzip_level

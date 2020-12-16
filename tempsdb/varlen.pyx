@@ -296,6 +296,11 @@ cdef class VarlenIterator:
         :class:`~tempsdb.varlen.VarlenEntry`. Note that setting this to True
         will result in a performance drop, since it will copy, but it should
         be faster if your typical entry is less than 20 bytes.
+
+    :ivar name: series' name (str)
+    :ivar path: path to series' directory (str)
+    :ivar max_entries_per_chunk: maximum entries per chunk (int)
+    :ivar length_profile: length profile (tp.List[int])
     """
     def __init__(self, parent: VarlenSeries, start: int, stop: int,
                  direct_bytes: bool = False):
@@ -437,6 +442,16 @@ cdef class VarlenSeries:
         for series in self.series:
             series.close_chunks()
         return 0
+
+    @property
+    cpdef unsigned long long last_entry_ts(self):
+        """
+        :return: last entry's timestamp, or barring that a 0
+        """
+        try:
+            return self.get_current_value()[0]
+        except ValueError:
+            return 0
 
     cpdef VarlenIterator iterate_range(self, unsigned long long start, unsigned long long stop,
                                        bint direct_bytes=False):
