@@ -10,7 +10,10 @@ cdef class Database:
         object mpm
         dict open_series
         dict open_varlen_series
+        readonly dict metadata
 
+    cpdef int reload_metadata(self) except -1
+    cpdef int set_metadata(self, dict meta) except -1
     cpdef int close(self) except -1
     cpdef TimeSeries get_series(self, str name,
                                 bint use_descriptor_based_access=*)

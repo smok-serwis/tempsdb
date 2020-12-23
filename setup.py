@@ -36,12 +36,13 @@ if 'CI' in os.environ:
     #     Extension('tempsdb.chunks.base', ['tempsdb/chunks/base.pyx']),
     # ]
     # ext_modules = cythonize(extensions, compiler_directives=directives)
-ext_modules = build([Multibuild('tempsdb', find_pyx('tempsdb'), **ext_kwargs), ],
+ext_modules = build([Multibuild('tempsdb', find_pyx('tempsdb'),
+                                **ext_kwargs), ],
                      compiler_directives=directives,
                      **cythonize_kwargs)
 
 setup(name='tempsdb',
-      version='0.5.4a1',
+      version='0.5.4a3',
       packages=find_packages(include=['tempsdb', 'tempsdb.*']),
       install_requires=['satella>=2.14.24', 'ujson'],
       ext_modules=ext_modules,

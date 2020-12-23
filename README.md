@@ -54,7 +54,8 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.5.4
 
-* _TBA_
+* older TempsDB databases that do not support varlens will be updated upon opening
+* added metadata support for databases
 
 ## v0.5.3
 

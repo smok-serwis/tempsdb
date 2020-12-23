@@ -4,6 +4,7 @@ import threading
 import warnings
 
 from satella.coding import DictDeleter
+from satella.json import read_json_from_file, write_json_to_file
 
 from tempsdb.exceptions import DoesNotExist, AlreadyExists, StillOpen
 from .series cimport TimeSeries, create_series
@@ -23,16 +24,49 @@ cdef class Database:
     :raises DoesNotExist: database does not exist, use `create_database`
 
     :ivar path: path to  the directory with the database (str)
+    :ivar metadata: metadata of this DB
     """
     def __init__(self, path: str):
         if not os.path.isdir(path):
             raise DoesNotExist('Database does not exist')
+
+        if not os.path.isdir(os.path.join(path, 'varlen')):
+            os.mkdir(os.path.join(path, 'varlen'))
+
         self.path = path
         self.closed = False
         self.open_series = {}
         self.open_varlen_series = {}
         self.lock = threading.RLock()
         self.mpm = None
+        self.metadata = {}
+        self.reload_metadata()
+
+    cpdef int reload_metadata(self) except -1:
+        """
+        Try to load the metadata again.
+        
+        This will change `metadata` attribute.
+        """
+        self.metadata = {}
+        if os.path.isfile(os.path.join(self.path, 'metadata.txt')):
+            try:
+                self.metadata = read_json_from_file(os.path.join(self.path, 'metadata.txt')).get('metadata', {})
+            except ValueError:
+                pass
+        return 0
+
+    cpdef int set_metadata(self, dict metadata) except -1:
+        """
+        Set metadata for this series.
+        
+        This will change `metadata` attribute.
+        
+        :param metadata: new metadata to set
+        """
+        write_json_to_file(os.path.join(self.path, 'metadata.txt'), {'metadata': metadata})
+        self.metadata = metadata
+        return 0
 
     cpdef list get_open_series(self):
         """
@@ -282,7 +316,7 @@ cdef class Database:
         """
         Create a new series.
         
-        Note that series cannot be named "varlen"
+        Note that series cannot be named "varlen" or "metadata.txt"
         
         :param name: name of the series
         :param block_size: size of the data field
@@ -298,8 +332,8 @@ cdef class Database:
         """
         if block_size > page_size + 8:
             raise ValueError('Invalid block size, pick larger page')
-        if name == 'varlen':
-            raise ValueError('Series cannot be named varlen')
+        if name == 'varlen' or name == 'metadata.txt':
+            raise ValueError('Series cannot be named varlen or metadata.txt')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
         cdef TimeSeries series

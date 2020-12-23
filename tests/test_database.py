@@ -9,6 +9,14 @@ class TestDatabase(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.db = create_database('my_db')
 
+    def test_metadata(self):
+        meta = self.db.metadata
+        self.assertFalse(self.db.metadata)
+        meta = {'hello': 'world'}
+        self.db.set_metadata(meta)
+        self.db.reload_metadata()
+        self.assertEqual(self.db.metadata, meta)
+
     def test_add_series(self):
         ser = self.db.create_series('hello-world', 1, 10)
         ser.append(10, b'\x00')
