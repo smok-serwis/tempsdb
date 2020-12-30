@@ -124,6 +124,7 @@ cdef class Chunk:
         :raises Corruption: unable to mmap file due to an unrecoverable error
         """
         if isinstance(self.mmap, AlternativeMMap):
+            self.mmap.flush()
             try:
                 self.mmap = mmap.mmap(self.file.fileno(), 0)
                 self.file_lock_object = None

@@ -80,6 +80,12 @@ cdef class DirectChunk(Chunk):
         self.max_ts, = STRUCT_Q.unpack(b)
         return 0
 
+    cpdef int switch_to_mmap_based_access(self) except -1:
+        if self.gzip:
+            raise RuntimeError('Cannot switch to mmap because its gzipped!')
+        super().switch_to_mmap_based_access()
+        return 0
+
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1:
         cdef bytes b
         if self.file_lock_object:
