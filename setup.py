@@ -1,11 +1,10 @@
 import os
 import typing as tp
 
-from Cython.Build import cythonize
 from satella.files import find_files
 from distutils.core import setup
 
-from setuptools import find_packages, Extension
+from setuptools import find_packages
 from snakehouse import Multibuild, build, monkey_patch_parallel_compilation
 
 
@@ -22,20 +21,7 @@ if 'CI' in os.environ:
     ext_kwargs['define_macros'] = [("CYTHON_TRACE_NOGIL", "1")]
     directives.update(profile=True, linetrace=True, embedsignature=True)
     cythonize_kwargs['gdb_debug'] = True
-    # extensions = [
-    #     Extension('tempsdb.database', ['tempsdb/database.pyx']),
-    #     Extension('tempsdb.database', ['tempsdb/database.pyx']),
-    #     Extension('tempsdb.exceptions', ['tempsdb/exceptions.pyx']),
-    #     Extension('tempsdb.iterators', ['tempsdb/iterators.pyx']),
-    #     Extension('tempsdb.series', ['tempsdb/series.pyx']),
-    #     Extension('tempsdb.varlen', ['tempsdb/varlen.pyx']),
-    #     Extension('tempsdb.chunks.gzip', ['tempsdb/chunks/gzip.pyx']),
-    #     Extension('tempsdb.chunks.direct', ['tempsdb/chunks/direct.pyx']),
-    #     Extension('tempsdb.chunks.normal', ['tempsdb/chunks/normal.pyx']),
-    #     Extension('tempsdb.chunks.maker', ['tempsdb/chunks/maker.pyx']),
-    #     Extension('tempsdb.chunks.base', ['tempsdb/chunks/base.pyx']),
-    # ]
-    # ext_modules = cythonize(extensions, compiler_directives=directives)
+
 ext_modules = build([Multibuild('tempsdb', find_pyx('tempsdb'),
                                 **ext_kwargs), ],
                      compiler_directives=directives,
