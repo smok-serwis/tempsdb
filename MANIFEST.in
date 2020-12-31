@@ -1,2 +1,4 @@
 include tempsdb/*.pyx
 include tempsdb/*.pxd
+include README.md
+include LICENSE
