@@ -28,7 +28,7 @@ ext_modules = build([Multibuild('tempsdb', find_pyx('tempsdb'),
                      **cythonize_kwargs)
 
 setup(name='tempsdb',
-      version='0.5.4a4',
+      version='0.5.4b1',
       packages=find_packages(include=['tempsdb', 'tempsdb.*']),
       install_requires=['satella>=2.14.24', 'ujson'],
       ext_modules=ext_modules,

@@ -57,6 +57,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 * older TempsDB databases that do not support varlens will be updated upon opening
 * added metadata support for databases
 * a flush will be done before re-enabling mmap
+* bugfix to read archive data
 
 ## v0.5.3
 

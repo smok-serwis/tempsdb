@@ -141,7 +141,7 @@ cdef class Iterator:
             elif self.i == self.limit:
                 self.get_next()
             return self.current_chunk.get_piece_at(self.i)
-        except StopIteration:
+        except (StopIteration, IndexError):
             return None
         finally:
             self.i += 1
