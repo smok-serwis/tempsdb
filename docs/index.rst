@@ -17,6 +17,10 @@ It tries to use mmap for reads and writes, and in general is as zero-copy as pos
 only time data is unserialized is when a particular entry is read). It also uses
 iterators.
 
+Visit the project GitHub_ page!
+
+.. _GitHub: https://github.com/smok-serwis/tempsdb
+
 Stored time series with a 8-bit timestamp and a fixed length of data.
 So no variable encoding for you!
 
