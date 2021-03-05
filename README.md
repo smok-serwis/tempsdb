@@ -52,6 +52,10 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
+## v0.5.5
+
+* _TBA_
+
 ## v0.5.4
 
 * older TempsDB databases that do not support varlens will be updated upon opening
