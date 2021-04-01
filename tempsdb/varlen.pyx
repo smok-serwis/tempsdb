@@ -19,7 +19,7 @@ cdef class VarlenEntry:
     values are routinely longer than 20-40 bytes.
 
     This behaves as a bytes object, in particular it can be sliced, iterated,
-    and it's length obtained. It also overloads __bytes__. It's also directly comparable
+    and it's length obtained. It also overrides __bytes__. It's also directly comparable
     and hashable, and boolable.
 
     This acquires a reference to the chunk it refers, and releases it upon destruction.
