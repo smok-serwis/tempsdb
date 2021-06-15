@@ -4,12 +4,11 @@ import threading
 import warnings
 
 from satella.coding import DictDeleter
-from satella.json import read_json_from_file, write_json_to_file
 
 from tempsdb.exceptions import DoesNotExist, AlreadyExists, StillOpen
 from .series cimport TimeSeries, create_series
-from .varlen cimport VarlenSeries, create_varlen_series
-
+from .varlen cimport VarlenSeries
+from .metadata cimport read_meta_at, write_meta_at
 
 cdef class Database:
     """
@@ -48,12 +47,7 @@ cdef class Database:
         
         This will change `metadata` attribute.
         """
-        self.metadata = {}
-        if os.path.isfile(os.path.join(self.path, 'metadata.txt')):
-            try:
-                self.metadata = read_json_from_file(os.path.join(self.path, 'metadata.txt')).get('metadata', {})
-            except ValueError:
-                pass
+        self.metadata = read_meta_at(self.path)
         return 0
 
     cpdef int set_metadata(self, dict metadata) except -1:
@@ -64,7 +58,7 @@ cdef class Database:
         
         :param metadata: new metadata to set
         """
-        write_json_to_file(os.path.join(self.path, 'metadata.txt'), {'metadata': metadata})
+        write_meta_at(self.path, metadata)
         self.metadata = metadata
         return 0
 
@@ -316,7 +310,7 @@ cdef class Database:
         """
         Create a new series.
         
-        Note that series cannot be named "varlen" or "metadata.txt"
+        Note that series cannot be named "varlen" or "metadata.txt" or "metadata.minijson"
         
         :param name: name of the series
         :param block_size: size of the data field
@@ -332,8 +326,8 @@ cdef class Database:
         """
         if block_size > page_size + 8:
             raise ValueError('Invalid block size, pick larger page')
-        if name == 'varlen' or name == 'metadata.txt':
-            raise ValueError('Series cannot be named varlen or metadata.txt')
+        if name == 'varlen' or name == 'metadata.txt' or name == 'metadata.minijson':
+            raise ValueError('Series cannot be named varlen or metadata.txt or metadata.minijson')
         if os.path.isdir(os.path.join(self.path, name)):
             raise AlreadyExists('Series already exists')
         cdef TimeSeries series

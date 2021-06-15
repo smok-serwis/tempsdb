@@ -16,3 +16,5 @@ The exceptions that inherit from it are:
 .. autoclass:: tempsdb.exceptions.AlreadyExists
 
 .. autoclass:: tempsdb.exceptions.StillOpen
+
+.. autoclass:: tempsdb.exceptions.EnvironmentError

@@ -21,3 +21,9 @@ class AlreadyExists(TempsDBError):
 class StillOpen(TempsDBError):
     """This resource has outstanding references and cannot be closed"""
     ...
+
+class EnvironmentError(TempsDBError):
+    """
+    The environment is misconfigured, eg. minijson is required but is not installed
+    """
+    ...

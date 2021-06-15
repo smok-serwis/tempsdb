@@ -12,7 +12,7 @@ cdef class VarlenSeries:
         TimeSeries root_series
         readonly list series
         readonly list length_profile
-        readonly int max_entries_per_chunk
+        readonly unsigned int max_entries_per_chunk
         int current_maximum_length
         object mpm
         int gzip_level

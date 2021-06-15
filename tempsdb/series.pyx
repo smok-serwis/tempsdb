@@ -1,19 +1,20 @@
+import os
 import typing as tp
 import shutil
 import threading
 import warnings
-
-from satella.json import write_json_to_file, read_json_from_file
 
 from .chunks.base cimport Chunk
 from .chunks.normal cimport NormalChunk
 from .chunks.direct cimport DirectChunk
 from .chunks.maker cimport create_chunk
 from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
-import os
+from .metadata cimport read_meta_at, write_meta_at
 
-DEF METADATA_FILE_NAME = 'metadata.txt'
 DEF DEFAULT_PAGE_SIZE=4096
+
+
+cdef set metadata_file_names = {'metadata.txt', 'metadata.minijson'}
 
 
 cdef class TimeSeries:
@@ -108,15 +109,15 @@ cdef class TimeSeries:
             raise DoesNotExist('Chosen time series does not exist')
 
         cdef:
-            dict metadata
+            dict metadata = read_meta_at(self.path)
             str filename
             list files = os.listdir(self.path)
             unsigned long long last_chunk_name
             bint is_direct
             bint is_gzip
+            bytes meta_d
 
         try:
-            metadata = read_json_from_file(os.path.join(self.path, METADATA_FILE_NAME))
             self.block_size = metadata['block_size']
             self.max_entries_per_chunk = metadata['max_entries_per_chunk']
             self.last_entry_synced = metadata['last_entry_synced']
@@ -142,7 +143,7 @@ cdef class TimeSeries:
             self.last_entry_ts = 0
         else:
             for filename in files:
-                if filename == METADATA_FILE_NAME:
+                if filename in metadata_file_names:
                     continue
                 is_gzip = filename.endswith('.gz')
                 if is_gzip:
@@ -357,9 +358,7 @@ cdef class TimeSeries:
         """
         Write the metadata to disk
         """
-        with self.lock:
-            write_json_to_file(os.path.join(self.path, METADATA_FILE_NAME), self.get_metadata())
-        return 0
+        return write_meta_at(self.path, self.get_metadata())
 
     cpdef int sync(self) except -1:
         """
@@ -534,6 +533,6 @@ cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
         meta['page_size'] = page_size
     if gzip_level:
         meta['gzip_level'] = gzip_level
-    write_json_to_file(os.path.join(path, 'metadata.txt'), meta)
+    write_meta_at(path, meta)
     return TimeSeries(path, name,
                       use_descriptor_based_access=use_descriptor_based_access)

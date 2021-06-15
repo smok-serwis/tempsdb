@@ -1,7 +1,6 @@
 from .series cimport TimeSeries
 from .varlen cimport VarlenSeries
 
-
 cdef class Database:
     cdef:
         readonly str path

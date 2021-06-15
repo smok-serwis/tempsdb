@@ -52,9 +52,11 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
-## v0.5.5
+## v0.6
 
-* _TBA_
+* added support for storing metadata as minijson
+    * this will be enabled by default is minijson is importable
+* fixed minor compiler warnings
 
 ## v0.5.4
 

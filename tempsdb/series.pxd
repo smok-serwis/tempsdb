@@ -23,6 +23,7 @@ cdef class TimeSeries:
         Chunk last_chunk
         object mpm      # satella.instrumentation.memory.MemoryPressureManager
 
+
     cdef void register_memory_pressure_manager(self, object mpm)
     cpdef int delete(self) except -1
     cdef dict get_metadata(self)
