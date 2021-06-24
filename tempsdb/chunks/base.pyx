@@ -171,8 +171,8 @@ cdef class Chunk:
     cpdef object open_file(self, str path):
         return open(self.path, 'rb+')
 
-    def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
-                 use_descriptor_access: bool = False):
+    def __init__(self, TimeSeries parent, str path, int page_size,
+                 bint use_descriptor_access = False):
         cdef bytes b
         self.file_size = os.path.getsize(path)
         self.page_size = page_size

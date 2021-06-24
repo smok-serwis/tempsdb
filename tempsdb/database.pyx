@@ -25,7 +25,7 @@ cdef class Database:
     :ivar path: path to  the directory with the database (str)
     :ivar metadata: metadata of this DB
     """
-    def __init__(self, path: str):
+    def __init__(self, str path):
         if not os.path.isdir(path):
             raise DoesNotExist('Database does not exist')
 
@@ -135,7 +135,7 @@ cdef class Database:
             shutil.rmtree(path)
             return 0
 
-    cpdef TimeSeries get_series(self, name: str, bint use_descriptor_based_access = False):
+    cpdef TimeSeries get_series(self, str name, bint use_descriptor_based_access = False):
         """
         Load and return an existing series
         

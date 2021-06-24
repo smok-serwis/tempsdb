@@ -94,7 +94,7 @@ cdef class TimeSeries:
                 chunk.switch_to_mmap_based_access()
         return 0
 
-    def __init__(self, path: str, name: str, use_descriptor_based_access: bool = False):
+    def __init__(self, str path, str name, bint use_descriptor_based_access = False):
         self.descriptor_based_access = use_descriptor_based_access
         self.mpm = None
         self.name = name

@@ -486,7 +486,7 @@ cdef class VarlenSeries:
             et.close()
             it.close()
 
-    def __init__(self, path: str, name: str, use_descriptor_based_access: bool = False):
+    def __init__(self, str path, str name, bint use_descriptor_based_access = False):
         self.closed = False
         self.mmap_enabled = not use_descriptor_based_access
         self.path = path

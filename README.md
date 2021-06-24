@@ -59,7 +59,8 @@ Then copy your resulting wheel and install it via pip on the target system.
 * fixed minor compiler warnings
 * `TimeSeries.iterate_range` will accept a parameter called
   `direct_bytes` for compatibility with `VarlenSeries`.
-  It's value is ignored.
+  It's value is ignored
+* more class constructors use explicit typing - faster tempsdb
 
 ## v0.5.4
 

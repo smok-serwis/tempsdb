@@ -30,9 +30,9 @@ cdef class DirectChunk(Chunk):
         gzip disabled. If given, a warning will be emitted as gzip support is still experimental.
     :raises ValueError: non-direct descriptor was requested and gzip was enabled
     """
-    def __init__(self, parent: tp.Optional[TimeSeries], path: str, page_size: int,
+    def __init__(self, TimeSeries parent, str path, int page_size,
                  use_descriptor_access: tp.Optional[bool] = None,
-                 gzip_compression_level: int = 0):
+                 int gzip_compression_level = 0):
         if path.endswith('.gz'):
             warnings.warn('Please pass the path without .gz')
             path = path.replace('.gz', '')

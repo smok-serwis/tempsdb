@@ -27,7 +27,7 @@ cdef class Iterator:
     :meth:`~tempsdb.iterators.Iterator.close`.
     """
 
-    def __init__(self, parent: TimeSeries, start: int, stop: int, chunks: tp.List[Chunk]):
+    def __init__(self, TimeSeries parent, int start, int stop, list chunks):
         self.start = start
         self.stop = stop
         self.current_chunk = None
