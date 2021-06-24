@@ -50,7 +50,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.6.1
 
-* _TBA_
+* fixed an issue with `Iterators`
 
 ## v0.6
 
