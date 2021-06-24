@@ -13,7 +13,6 @@ cdef class Chunk:
         readonly str path
         readonly unsigned long long min_ts
         readonly unsigned long long max_ts
-        unsigned int block_size_plus        # block size plus timestamp length
         readonly unsigned int block_size
         readonly unsigned long entries
         unsigned long file_size
@@ -32,7 +31,7 @@ cdef class Chunk:
     cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1
     cpdef unsigned int find_left(self, unsigned long long timestamp)
     cpdef unsigned int find_right(self, unsigned long long timestamp)
-    cpdef object open_file(self, str path)
+    cdef object open_file(self, str path)
     cpdef int extend(self) except -1
     cpdef int after_init(self) except -1
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1

@@ -54,6 +54,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.6
 
+* **bugfix**: fixed some bugs with reading values after close
 * added support for storing metadata as minijson
     * this will be enabled by default is minijson is importable
 * fixed minor compiler warnings

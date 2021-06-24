@@ -63,13 +63,10 @@ cpdef Chunk create_chunk(TimeSeries parent, str path, unsigned long long timesta
         unsigned long bytes_to_pad
     if not use_direct_mode:
         # Pad this thing to page_size
-        bytes_to_pad = page_size - (file_size % page_size)
+        bytes_to_pad = page_size - 4 - (file_size % page_size)
         file.write(b'\x00' * bytes_to_pad)
 
-        # Create a footer at the end
-        footer = bytearray(page_size)
-        footer[-4:] = b'\x01\x00\x00\x00'   # 1 in little endian
-        file.write(footer)
+        file.write(b'\x01\x00\x00\x00')
     file.close()
     if gzip_compression_level:
         return DirectChunk(parent, original_path, page_size, use_descriptor_access=True,

@@ -38,7 +38,7 @@ class TestDB(unittest.TestCase):
         self.assertEqual(chunk.find_right(5), 4)
         self.assertEqual(chunk.find_right(6), 4)
         chunk.close()
-        self.assertEqual(os.path.getsize('chunk.db'), 8192)
+        self.assertEqual(os.path.getsize('chunk.db'), 4096)
 
     def test_chunk(self):
         from tempsdb.chunks.maker import create_chunk
@@ -71,4 +71,4 @@ class TestDB(unittest.TestCase):
         self.assertEqual(chunk.find_right(5), 4)
         self.assertEqual(chunk.find_right(6), 4)
         chunk.close()
-        self.assertEqual(os.path.getsize('chunk.db'), 8192)
+        self.assertEqual(os.path.getsize('chunk.db'), 4096)

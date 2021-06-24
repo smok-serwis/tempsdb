@@ -72,10 +72,10 @@ cdef class DirectChunk(Chunk):
         else:
             self.file.seek(0, os.SEEK_END)
             self.file_size = self.file.tell()
-        self.entries = (self.file_size - HEADER_SIZE) // self.block_size_plus
+        self.entries = (self.file_size - HEADER_SIZE) // (self.block_size + TIMESTAMP_SIZE)
         self.pointer = self.file_size
-        d = (self.file_size - self.block_size) - (self.file_size-self.block_size_plus)
-        cdef bytes b = self.mmap[self.file_size-self.block_size_plus:self.file_size-self.block_size]
+        d = (self.file_size - self.block_size) - (self.file_size-(self.block_size + TIMESTAMP_SIZE))
+        cdef bytes b = self.mmap[self.file_size-(self.block_size + TIMESTAMP_SIZE):self.file_size-self.block_size]
 
         self.max_ts, = STRUCT_Q.unpack(b)
         return 0
@@ -91,13 +91,13 @@ cdef class DirectChunk(Chunk):
         if self.file_lock_object:
             self.file_lock_object.acquire()
         try:
-            self.file_size += self.block_size_plus
+            self.file_size += self.block_size + TIMESTAMP_SIZE
             if not isinstance(self.file, ReadWriteGzipFile):
                 self.file.seek(self.pointer, 0)
             b = STRUCT_Q.pack(timestamp) + data
             self.file.write(b)
             self.mmap.resize(self.file_size)
-            self.pointer += self.block_size_plus
+            self.pointer += self.block_size + TIMESTAMP_SIZE
             self.entries += 1
         finally:
             if self.file_lock_object:

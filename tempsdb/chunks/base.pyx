@@ -24,7 +24,9 @@ cdef class AlternativeMMap:
     """
     An alternative mmap implementation used when mmap cannot allocate due to memory issues.
 
-    Note that opening gzip files is slow, as the script needs to iterate
+    Note that opening gzip files is slow, as the script needs to iterate.
+
+    Utilizing negative indices is always wrong!
     """
     def flush(self):
         self.io.flush()
@@ -42,14 +44,14 @@ cdef class AlternativeMMap:
             rw_gz = io_file
             self.size = rw_gz.size
         else:
-            self.io.seek(0, 2)
+            self.io.seek(0, io.SEEK_END)
             self.size = self.io.tell()
         self.file_lock_object = file_lock_object
 
     def __getitem__(self, item: tp.Union[int, slice]) -> tp.Union[int, bytes]:
         cdef:
-            unsigned long start = item.start
-            unsigned long stop = item.stop
+            unsigned long start
+            unsigned long stop
             bytes b
         with self.file_lock_object:
             if isinstance(item, int):
@@ -64,10 +66,12 @@ cdef class AlternativeMMap:
 
     def __setitem__(self, key: tp.Union[int, slice], value: tp.Union[int, bytes]) -> None:
         cdef:
-            unsigned long start = key.start
+            unsigned long start
         if isinstance(key, int):
             self[key:key+1] = bytes([value])
         else:
+            start = key.start
+            assert key.stop - start == len(value), 'invalid write length!'
             with self.file_lock_object:
                 if not isinstance(self.io, ReadWriteGzipFile):
                     self.io.seek(start, 0)
@@ -160,15 +164,21 @@ cdef class Chunk:
         :meta private:
         """
         self.entries, = STRUCT_L.unpack(self.mmap[self.file_size-FOOTER_SIZE:self.file_size])
-        self.pointer = self.entries*self.block_size_plus+HEADER_SIZE
+        self.pointer = self.entries*(self.block_size+TIMESTAMP_SIZE)+HEADER_SIZE
         self.max_ts = self.get_timestamp_at(self.entries-1)
+
+        print('Readed',self.path, 'entries=', self.entries, 'max ts=', self.max_ts,
+              'file size=', self.file_size, 'pointer=', self.pointer, 'page size=', self.page_size)
+
+        if self.entries == 3867:
+            print('last record of 3867: ', repr(self.mmap[69592:69610]))
 
         if self.pointer >= self.page_size:
             # Inform the OS that we don't need the header anymore
             self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
         return 0
 
-    cpdef object open_file(self, str path):
+    cdef object open_file(self, str path):
         return open(self.path, 'rb+')
 
     def __init__(self, TimeSeries parent, str path, int page_size,
@@ -199,7 +209,6 @@ cdef class Chunk:
 
         try:
             self.block_size, self.min_ts = STRUCT_LQ.unpack(self.mmap[0:HEADER_SIZE+TIMESTAMP_SIZE])
-            self.block_size_plus = self.block_size + TIMESTAMP_SIZE
         except struct.error:
             self.close()
             raise Corruption('Could not read the header of the chunk file %s' % (self.path, ))
@@ -209,10 +218,6 @@ cdef class Chunk:
         self.pointer = 0
 
         self.after_init()
-
-        if self.pointer >= self.page_size:
-            # Inform the OS that we don't need the header anymore
-            self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
 
     cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1:
         """
@@ -228,7 +233,7 @@ cdef class Chunk:
         if index > self.entries:
             raise ValueError('index too large')
         cdef:
-            unsigned long offset = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + byte_index
+            unsigned long offset = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE) + byte_index
         return self.mmap[offset]
 
     cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start):
@@ -253,7 +258,7 @@ cdef class Chunk:
         if index >= self.entries:
             raise IndexError('Index too large')
         cdef:
-            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus + start
+            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE) + start
             unsigned long stopping_index = starting_index + stop
         return self.mmap[starting_index:stopping_index]
 
@@ -267,8 +272,9 @@ cdef class Chunk:
         :return: the timestamp
         """
         cdef:
-            unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
+            unsigned long starting_index = HEADER_SIZE + index * (self.block_size + TIMESTAMP_SIZE)
             unsigned long stopping_index = starting_index + TIMESTAMP_SIZE
+        print('reading timestamp from', starting_index, 'to', stopping_index)
         return STRUCT_Q.unpack(self.mmap[starting_index:stopping_index])[0]
 
     cpdef unsigned int find_left(self, unsigned long long timestamp):
@@ -403,7 +409,7 @@ cdef class Chunk:
         if index >= self.entries:
             raise IndexError('Index too large')
         cdef:
-            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * self.block_size_plus
+            unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE)
             unsigned long stopping_index = starting_index + self.block_size
         return self.mmap[starting_index:stopping_index]
 
@@ -425,8 +431,10 @@ cdef class Chunk:
                 del self.parent.refs_chunks[name]
                 del self.parent.open_chunks[name]
         self.parent = None
+        self.sync()
         self.mmap.close()
         self.file.close()
+        print('closing', self.path)
         return 0
 
     def __del__(self) -> None:
@@ -446,8 +454,8 @@ cdef class Chunk:
             raise IndexError('Index too large, got %s while max entries is %s' % (index,
                                                                                   self.entries))
         cdef:
-            unsigned long starting_index = HEADER_SIZE + index * self.block_size_plus
-            unsigned long stopping_index = starting_index + self.block_size_plus
+            unsigned long starting_index = HEADER_SIZE + index * (self.block_size + TIMESTAMP_SIZE)
+            unsigned long stopping_index = starting_index + (self.block_size + TIMESTAMP_SIZE)
             unsigned long long ts = STRUCT_Q.unpack(
                 self.mmap[starting_index:starting_index+TIMESTAMP_SIZE])[0]
         return ts, self.mmap[starting_index+TIMESTAMP_SIZE:stopping_index]

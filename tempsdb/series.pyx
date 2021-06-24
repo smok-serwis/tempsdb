@@ -1,3 +1,4 @@
+import resource
 import os
 import typing as tp
 import shutil
@@ -10,8 +11,6 @@ from .chunks.direct cimport DirectChunk
 from .chunks.maker cimport create_chunk
 from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 from .metadata cimport read_meta_at, write_meta_at
-
-DEF DEFAULT_PAGE_SIZE=4096
 
 
 cdef set metadata_file_names = {'metadata.txt', 'metadata.minijson'}
@@ -124,7 +123,7 @@ cdef class TimeSeries:
             self.block_size = metadata['block_size']
             self.max_entries_per_chunk = metadata['max_entries_per_chunk']
             self.last_entry_synced = metadata['last_entry_synced']
-            self.page_size = metadata.get('page_size', 4096)
+            self.page_size = metadata['page_size']
             self.metadata = metadata.get('metadata')
             self.gzip_level = metadata.get('gzip_level', 0)
         except ValueError:
@@ -386,9 +385,8 @@ cdef class TimeSeries:
                 'block_size': self.block_size,
                 'max_entries_per_chunk': self.max_entries_per_chunk,
                 'last_entry_synced': self.last_entry_synced,
+                'page_size': self.page_size
             }
-        if self.page_size != DEFAULT_PAGE_SIZE:
-            meta['page_size'] = self.page_size
         if self.metadata is not None:
             meta['metadata'] = self.metadata
         return meta
@@ -523,19 +521,20 @@ cdef class TimeSeries:
 
 
 cpdef TimeSeries create_series(str path, str name, unsigned int block_size,
-                               int max_entries_per_chunk, int page_size=DEFAULT_PAGE_SIZE,
+                               int max_entries_per_chunk, int page_size=0,
                                bint use_descriptor_based_access=False,
                                int gzip_level=0):
+    if not page_size:
+        page_size = resource.getpagesize()
     if os.path.exists(path):
         raise AlreadyExists('This series already exists!')
     os.mkdir(path)
     cdef dict meta = {
             'block_size': block_size,
             'max_entries_per_chunk': max_entries_per_chunk,
-            'last_entry_synced': 0
+            'last_entry_synced': 0,
+            'page_size': page_size
     }
-    if page_size != DEFAULT_PAGE_SIZE:
-        meta['page_size'] = page_size
     if gzip_level:
         meta['gzip_level'] = gzip_level
     write_meta_at(path, meta)

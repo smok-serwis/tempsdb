@@ -304,7 +304,7 @@ cdef class Database:
 
     cpdef TimeSeries create_series(self, str name, int block_size,
                                    unsigned long entries_per_chunk,
-                                   int page_size=4096,
+                                   int page_size=0,
                                    bint use_descriptor_based_access=False,
                                    int gzip_level=0):
         """
@@ -315,7 +315,7 @@ cdef class Database:
         :param name: name of the series
         :param block_size: size of the data field
         :param entries_per_chunk: entries per chunk file
-        :param page_size: size of a single page. Default is 4096
+        :param page_size: size of a single page. Default (0) is autodetect.
         :param use_descriptor_based_access: whether to use descriptor based access instead of mmap.
             Default is False
         :param gzip_level: gzip compression level. Default is 0 which means "don't use gzip"
