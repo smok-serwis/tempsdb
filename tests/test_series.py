@@ -6,6 +6,9 @@ class TestSeries(unittest.TestCase):
     def test_write_series(self):
         from tempsdb.series import create_series
         series = create_series('test3', 'test3', 10, 4096)
+
+        self.assertRaises(ValueError, series.get_current_value)
+
         for i in range(8000):
             series.append(i, b'\x00'*10)
 

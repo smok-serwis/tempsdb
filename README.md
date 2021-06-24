@@ -61,6 +61,7 @@ Then copy your resulting wheel and install it via pip on the target system.
   `direct_bytes` for compatibility with `VarlenSeries`.
   It's value is ignored
 * more class constructors use explicit typing - faster tempsdb
+* `TimeSeries.get_current_value` will correctly raise `ValueError` instead of returning None
 
 ## v0.5.4
 
