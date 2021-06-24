@@ -41,12 +41,12 @@ cdef class NormalChunk(Chunk):
         if self.file_lock_object:
             self.file_lock_object.acquire()
         try:
-            self.sync()
             self.file_size += self.page_size
             self.file.seek(0, io.SEEK_END)
             ba = bytearray(self.page_size)
             ba[-FOOTER_SIZE:] = STRUCT_L.pack(self.entries)
             self.file.write(ba)
+            self.file.flush()
             try:
                 self.mmap.resize(self.file_size)
             except OSError as e:
@@ -54,6 +54,7 @@ cdef class NormalChunk(Chunk):
                     self.switch_to_descriptor_based_access()
                 else:
                     raise
+            self.sync()
         finally:
             if self.file_lock_object:
                 self.file_lock_object.release()
@@ -78,12 +79,10 @@ cdef class NormalChunk(Chunk):
         if self.closed:
             raise InvalidState('chunk is closed')
 
-        if self.pointer >= self.file_size-FOOTER_SIZE-self.block_size-TIMESTAMP_SIZE:
+        if self.pointer > self.file_size-FOOTER_SIZE-self.block_size-TIMESTAMP_SIZE:
             self.extend()
         cdef unsigned long long ptr_end = self.pointer + TIMESTAMP_SIZE
         # Append entry
-        if self.entries > 4090:
-            print('writing %s to %s@%s ec=%s' % (repr(data), self.path, self.pointer, self.entries))
         self.mmap[self.pointer:ptr_end] = STRUCT_Q.pack(timestamp)
         self.mmap[ptr_end:ptr_end+self.block_size] = data
         self.entries += 1

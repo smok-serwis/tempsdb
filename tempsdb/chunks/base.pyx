@@ -7,7 +7,7 @@ import mmap
 import warnings
 
 from .gzip cimport ReadWriteGzipFile
-from ..exceptions import Corruption, InvalidState, AlreadyExists, StillOpen
+from ..exceptions import Corruption, StillOpen
 from ..series cimport TimeSeries
 
 
@@ -167,12 +167,6 @@ cdef class Chunk:
         self.pointer = self.entries*(self.block_size+TIMESTAMP_SIZE)+HEADER_SIZE
         self.max_ts = self.get_timestamp_at(self.entries-1)
 
-        print('Readed',self.path, 'entries=', self.entries, 'max ts=', self.max_ts,
-              'file size=', self.file_size, 'pointer=', self.pointer, 'page size=', self.page_size)
-
-        if self.entries == 3867:
-            print('last record of 3867: ', repr(self.mmap[69592:69610]))
-
         if self.pointer >= self.page_size:
             # Inform the OS that we don't need the header anymore
             self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
@@ -274,7 +268,6 @@ cdef class Chunk:
         cdef:
             unsigned long starting_index = HEADER_SIZE + index * (self.block_size + TIMESTAMP_SIZE)
             unsigned long stopping_index = starting_index + TIMESTAMP_SIZE
-        print('reading timestamp from', starting_index, 'to', stopping_index)
         return STRUCT_Q.unpack(self.mmap[starting_index:stopping_index])[0]
 
     cpdef unsigned int find_left(self, unsigned long long timestamp):
@@ -434,7 +427,6 @@ cdef class Chunk:
         self.sync()
         self.mmap.close()
         self.file.close()
-        print('closing', self.path)
         return 0
 
     def __del__(self) -> None:

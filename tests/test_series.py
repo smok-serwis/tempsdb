@@ -4,7 +4,6 @@ import unittest
 
 class TestSeries(unittest.TestCase):
 
-    @unittest.skip('bug')
     def test_write_series_append_after_close(self):
         from tempsdb.series import create_series, TimeSeries
         series = create_series('test6', 'test6', 10, 4096)
@@ -26,7 +25,6 @@ class TestSeries(unittest.TestCase):
 
         series.close()
 
-    @unittest.skip('because of reasons')
     def test_write_series_with_interim_close(self):
         from tempsdb.series import create_series, TimeSeries
         series = create_series('test4', 'test4', 10, 4096)
