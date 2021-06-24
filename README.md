@@ -11,7 +11,7 @@
 
 Embedded Cython library for time series that you need to upload somewhere.
 
-Stored time series with a 8-bit timestamp and a data, which can be of
+Stored time series with a 8-byte timestamp and a data, which can be of
 fixed length or variable.
 
 # Installation
@@ -29,14 +29,10 @@ though binary wheels for:
  
 * Linux [manylinux2014]:
     * x86_64:
-        * Python 3.6
-        * Python 3.7
         * Python 3.8
     * armv7l:
         * Python 3.8
-* Windows:
-    * x86_64:
-        * Python 3.8
+
 
 are available. If you need an extra wheel, compile it yourself
 or just drop me an [issue](https://github.com/smok-serwis/tempsdb/issues/new).
