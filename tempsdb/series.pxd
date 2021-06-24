@@ -37,7 +37,8 @@ cdef class TimeSeries:
     cpdef int append_padded(self, unsigned long long timestamp, bytes data) except -1
     cpdef int sync(self) except -1
     cpdef int close_chunks(self) except -1
-    cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop)
+    cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop,
+                                 bint direct_bytes=*)
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp)
     cpdef int trim(self, unsigned long long timestamp) except -1
     cpdef unsigned long open_chunks_mmap_size(self)

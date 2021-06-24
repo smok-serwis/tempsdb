@@ -57,6 +57,9 @@ Then copy your resulting wheel and install it via pip on the target system.
 * added support for storing metadata as minijson
     * this will be enabled by default is minijson is importable
 * fixed minor compiler warnings
+* `TimeSeries.iterate_range` will accept a parameter called
+  `direct_bytes` for compatibility with `VarlenSeries`.
+  It's value is ignored.
 
 ## v0.5.4
 

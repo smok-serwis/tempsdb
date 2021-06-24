@@ -309,12 +309,14 @@ cdef class TimeSeries:
         except IndexError:
             return len(self.chunks)-1
 
-    cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop):
+    cpdef Iterator iterate_range(self, unsigned long long start, unsigned long long stop,
+                                 bint direct_bytes=True):
         """
         Return an iterator through collected data with given timestamps.
         
         :param start: timestamp to start at
         :param stop: timestamp to stop at
+        :param direct_bytes: for compatibility with VarlenSeries. Ignored.
         :return: an iterator with the data
         :raises ValueError: start larger than stop
         """
