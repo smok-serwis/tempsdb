@@ -6,7 +6,7 @@
 [![Documentation Status](https://readthedocs.org/projects/tempsdb/badge/?version=latest)](http://tempsdb.readthedocs.io/en/latest/?badge=latest)
 [![Maintainability](https://api.codeclimate.com/v1/badges/657b03d115f6e001633c/maintainability)](https://codeclimate.com/github/smok-serwis/tempsdb/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/a0ff30771c71e43e8149/test_coverage)](https://codeclimate.com/github/smok-serwis/tempsdb/test_coverage)
-[![Build status](https://circleci.com/gh/smok-serwis/tempsdb.svg?style=shield)](https://app.circleci.com/pipelines/github/smok-serwis/tempsdb)
+[![Build Status](https://travis-ci.com/smok-serwis/tempsdb.svg)](https://travis-ci.com/smok-serwis/tempsdb)
 [![Wheel](https://img.shields.io/pypi/wheel/tempsdb.svg)](https://pypi.org/project/tempsdb/)
 
 Embedded Cython library for time series that you need to upload somewhere.
@@ -19,12 +19,12 @@ fixed length or variable.
 ```bash
 git clone https://github.com/smok-serwis/tempsdb
 cd tempsdb
-pip install snakehouse satella
+pip install snakehouse tempsdb
 python setup.py install
 ```
 
 You need both [snakehouse](https://pypi.org/project/snakehouse/1.2.2/)
-and [satella](https://pypi.org/project/satella/) to compile it from the source,
+and [tempsdb](https://pypi.org/project/tempsdb/) to compile it from the source,
 though binary wheels for:
  
 * Linux [manylinux2014]:
@@ -38,7 +38,7 @@ are available. If you need an extra wheel, compile it yourself
 or just drop me an [issue](https://github.com/smok-serwis/tempsdb/issues/new).
 
 If you're installing it somewhere that you don't need both snakehouse
-and satella installed, compile your own binary wheel with
+and tempsdb installed, compile your own binary wheel with
 
 ```
 python setup.py bdist_wheel
