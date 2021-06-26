@@ -289,6 +289,8 @@ cdef class VarlenIterator:
     If you forget to do that, a warning will be issued and the destructor will
     close it automatically.
 
+    Also supports the context manager syntax of :class:`~tempsdb.iterators.Iterator`
+
     :param parent: parent series
     :param start: started series
     :param stop: stopped series
@@ -387,6 +389,12 @@ cdef class VarlenIterator:
                 return varlen_entry.timestamp(), varlen_entry.to_bytes()
             else:
                 return varlen_entry.timestamp(), varlen_entry
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def __iter__(self):
         return self

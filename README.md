@@ -51,7 +51,7 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 ## v0.6.2
 
-* _TBA_
+* added the context manager syntax to VarlenIterator
 
 ## v0.6.1
 
