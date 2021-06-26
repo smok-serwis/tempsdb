@@ -7,7 +7,7 @@ before_script:
   - chmod +x ./cc-test-reporter
   - ./cc-test-reporter before-build
   - pip install -r requirements.txt
-  - pip install -U nose2 coverage
+  - pip install -U nose2 coverage Cython satella snakehouse
   - python setup.py build_ext --inplace
 jobs:
   include:
