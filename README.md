@@ -52,6 +52,8 @@ Then copy your resulting wheel and install it via pip on the target system.
 ## v0.6.2
 
 * added the context manager syntax to VarlenIterator
+* fixed a memory leak that happened during getting current value
+    from an empty series
 
 ## v0.6.1
 

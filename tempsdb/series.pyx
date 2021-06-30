@@ -47,13 +47,12 @@ cdef class TimeSeries:
         cdef:
             Iterator it = self.iterate_range(self.last_chunk.max_ts, self.last_chunk.max_ts)
             tuple tpl = it.next_item()
+        it.close()
 
         if tpl is None:
             raise ValueError('Series is empty!')
-        try:
-            return tpl
-        finally:
-            it.close()
+
+        return tpl
 
     cpdef int disable_mmap(self) except -1:
         """
