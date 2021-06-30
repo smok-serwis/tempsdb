@@ -11,4 +11,5 @@ omit=
 
 [report]
 include=
-    tempsdb/*
+    tempsdb/*.pyx
+    tempsdb/chunks/*.pyx
