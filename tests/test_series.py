@@ -88,6 +88,21 @@ class TestSeries(unittest.TestCase):
         self.do_verify_series(series, 0, 1800)
         series.close()
 
+    def test_delete_series(self):
+        from tempsdb.series import create_series, TimeSeries
+        from tempsdb.exceptions import DoesNotExist
+
+        series = create_series('test-delete', 'test-delete', 1, 10)
+        start, ts = 127, 100
+        for i in range(20):
+            series.append(ts, bytes(bytearray([start])))
+            start -= 1
+            ts += 100
+
+        series.close()
+        series.delete()
+        self.assertRaises(DoesNotExist, lambda: TimeSeries('test-delete', 'test-delete'))
+
     def test_disable_enable_mmap_sync(self):
         from tempsdb.series import create_series, TimeSeries
 
