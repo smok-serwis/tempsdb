@@ -169,7 +169,8 @@ cdef class Chunk:
 
         if self.pointer >= self.page_size:
             # Inform the OS that we don't need the header anymore
-            self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
+            if hasattr(self.mmap, 'madvise'):
+                self.mmap.madvise(mmap.MADV_DONTNEED, 0, HEADER_SIZE+TIMESTAMP_SIZE)
         return 0
 
     cdef object open_file(self, str path):
