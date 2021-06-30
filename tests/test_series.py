@@ -91,7 +91,7 @@ class TestSeries(unittest.TestCase):
     def test_disable_enable_mmap(self):
         from tempsdb.series import create_series
 
-        series = create_series('test', 'test', 1, 10)
+        series = create_series('test-mmap', 'test-mmap', 1, 10)
         start, ts = 127, 100
         for i in range(20):
             series.append(ts, bytes(bytearray([start])))

@@ -6,8 +6,8 @@ before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
   - ./cc-test-reporter before-build
+  - pip install -U Cython satella snakehouse nose2 coverage
   - pip install -r requirements.txt
-  - pip install -U nose2 coverage Cython satella snakehouse
   - python setup.py build_ext --inplace
 jobs:
   include:
