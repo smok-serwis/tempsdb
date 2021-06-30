@@ -3,7 +3,7 @@ import threading
 
 
 cdef class ReadWriteGzipFile:
-    def __init__(self, str path, int compresslevel = gzip._COMPRESS_LEVEL_FAST):
+    def __init__(self, str path, int compresslevel = 1):
         self.path = path
         self.compress_level = compresslevel
         self.rw_file = gzip.GzipFile(path, 'ab', compresslevel=self.compress_level)
