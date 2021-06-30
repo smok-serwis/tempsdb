@@ -88,8 +88,8 @@ class TestSeries(unittest.TestCase):
         self.do_verify_series(series, 0, 1800)
         series.close()
 
-    def test_disable_enable_mmap(self):
-        from tempsdb.series import create_series
+    def test_disable_enable_mmap_sync(self):
+        from tempsdb.series import create_series, TimeSeries
 
         series = create_series('test-mmap', 'test-mmap', 1, 10)
         start, ts = 127, 100
@@ -98,6 +98,9 @@ class TestSeries(unittest.TestCase):
             start -= 1
             ts += 100
 
+        series.sync()
+        series.close()
+        series = TimeSeries('test-mmap', 'test-mmap')
         series.disable_mmap()
         self.do_verify_series(series, 0, 2000)
         self.do_verify_series(series, 500, 2000)
