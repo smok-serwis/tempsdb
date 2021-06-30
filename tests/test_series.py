@@ -99,7 +99,6 @@ class TestSeries(unittest.TestCase):
             start -= 1
             ts += 100
 
-        series.close()
         series.delete()
         self.assertRaises(DoesNotExist, lambda: TimeSeries('test-delete', 'test-delete'))
 
