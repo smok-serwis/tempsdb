@@ -88,6 +88,34 @@ class TestSeries(unittest.TestCase):
         self.do_verify_series(series, 0, 1800)
         series.close()
 
+    def test_disable_enable_mmap(self):
+        from tempsdb.series import create_series
+
+        series = create_series('test', 'test', 1, 10)
+        start, ts = 127, 100
+        for i in range(20):
+            series.append(ts, bytes(bytearray([start])))
+            start -= 1
+            ts += 100
+
+        series.disable_mmap()
+        self.do_verify_series(series, 0, 2000)
+        self.do_verify_series(series, 500, 2000)
+        self.do_verify_series(series, 1000, 2000)
+        self.do_verify_series(series, 1500, 2000)
+        self.do_verify_series(series, 0, 500)
+        self.do_verify_series(series, 0, 1200)
+        self.do_verify_series(series, 0, 1800)
+        series.enable_mmap()
+        self.do_verify_series(series, 0, 2000)
+        self.do_verify_series(series, 500, 2000)
+        self.do_verify_series(series, 1000, 2000)
+        self.do_verify_series(series, 1500, 2000)
+        self.do_verify_series(series, 0, 500)
+        self.do_verify_series(series, 0, 1200)
+        self.do_verify_series(series, 0, 1800)
+        series.close()
+
     def test_create_series_gzip(self):
         from tempsdb.series import create_series
 
