@@ -8,6 +8,7 @@
 [![Test Coverage](https://api.codeclimate.com/v1/badges/a0ff30771c71e43e8149/test_coverage)](https://codeclimate.com/github/smok-serwis/tempsdb/test_coverage)
 [![Build Status](https://travis-ci.com/smok-serwis/tempsdb.svg)](https://travis-ci.com/smok-serwis/tempsdb)
 [![Wheel](https://img.shields.io/pypi/wheel/tempsdb.svg)](https://pypi.org/project/tempsdb/)
+[![License](https://img.shields.io/pypi/l/tempsdb)](https://github.com/smok-serwis/tempsdb)
 
 Embedded Cython library for time series that you need to upload somewhere.
 
