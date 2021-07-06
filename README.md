@@ -55,7 +55,7 @@ logger `tempsdb` to WARN will eliminate all warnings that tempsdb outputs.
 
 ## v0.6.4
 
-* _TBA_
+* fixed a bug with slicing chunks
 
 ## v0.6.3
 

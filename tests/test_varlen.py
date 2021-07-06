@@ -20,6 +20,25 @@ class TestVarlen(unittest.TestCase):
         it.close()
         self.assertEqual(lst, series)
 
+    def test_varlen_iterator(self):
+        from tempsdb.varlen import create_varlen_series
+
+        series = [(0, b'test skarabeusza'), (10, b'test skarabeuszatest skarabeusza')]
+        varlen = create_varlen_series('test2_dir', 'test2_dir', 2, [10, 20, 10], 20)
+
+        varlen.append(*series[0])
+        varlen.append(*series[1])
+
+        with varlen.iterate_range(0, 20) as iterator:
+            ve = iterator.get_next()
+            while ve is not None:
+                self.assertTrue(ve.slice(0, 4), b'test')
+                self.assertTrue(ve.startswith(b'test '))
+                # self.assertTrue(ve.endswith(b'skarabeusza'))
+                self.assertFalse(ve.startswith(b'tost'))
+                # self.assertFalse(ve.endswith(b'skerabeusza'))
+                ve = iterator.get_next()
+
     def test_varlen_gzip(self):
         from tempsdb.varlen import create_varlen_series
 

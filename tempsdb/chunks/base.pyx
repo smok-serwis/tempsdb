@@ -254,7 +254,7 @@ cdef class Chunk:
             raise IndexError('Index too large')
         cdef:
             unsigned long starting_index = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE) + start
-            unsigned long stopping_index = starting_index + stop
+            unsigned long stopping_index = starting_index + stop - start
         return self.mmap[starting_index:stopping_index]
 
     cpdef unsigned long long get_timestamp_at(self, unsigned int index):

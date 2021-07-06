@@ -42,7 +42,7 @@ cdef class VarlenEntry:
         self.data = None        #: cached data, filled in by to_bytes
         self.len = -1
 
-    cpdef bint startswith(self, bytes v):
+    cpdef bint startswith(self, bytes v) except -1:
         """
         Check whether this sequence starts with provided bytes.
         
@@ -52,16 +52,17 @@ cdef class VarlenEntry:
         :param v: bytes to check
         :return: whether the sequence starts with provided bytes
         """
+        cdef int length = len(v)
         if self.data is not None:
             return self.data.startswith(v)
 
-        if len(v) > self.length():
+        if length > self.length():
             return False
 
-        cdef bytes b = self.slice(0, self.len)
+        cdef bytes b = self.slice(0, length)
         return b == v
 
-    cpdef bint endswith(self, bytes v):
+    cpdef bint endswith(self, bytes v) except -1:
         """
         Check whether this sequence ends with provided bytes.
         
@@ -160,7 +161,7 @@ cdef class VarlenEntry:
         
         :param start: position to start at
         :param stop: position to stop at
-        :return: a slice of this entry
+        :return: a slice of this entry, stop-start bytes will be returned
         :raises ValueError: stop was smaller than start or indices were invalid
         """
         if stop < start:
@@ -194,12 +195,18 @@ cdef class VarlenEntry:
             Chunk chunk = self.chunks[segment]
             bytes temp_data
             int offset = self.parent.size_field
-        while write_pointer < length and len(self.chunks) < segment:
+
+        while write_pointer < length and len(self.chunks) > segment:
             if chunk_len-start_reading_at >= + (length - write_pointer):
                 # We have all the data that we require
-                b[write_pointer:length] = chunk.get_slice_of_piece_at(self.item_no[segment],
-                                                                      offset, offset+length-write_pointer)
+                temp_data = chunk.get_slice_of_piece_at(self.item_no[segment],
+                                                        offset, offset+length-write_pointer)
+                assert len(temp_data) == length-write_pointer, 'invalid length'
+                b[write_pointer:length] = temp_data
                 return bytes(b)
+
+            if chunk_len > length - write_pointer:
+                chunk_len = length - write_pointer
 
             temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], 0, chunk_len)
             b[write_pointer:write_pointer+chunk_len] = temp_data
