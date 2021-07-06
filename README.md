@@ -49,6 +49,9 @@ Then copy your resulting wheel and install it via pip on the target system.
 
 # Changelog
 
+## v0.6.3
+
+* _TBA_
 
 ## v0.6.2
 
