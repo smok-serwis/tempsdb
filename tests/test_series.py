@@ -4,7 +4,7 @@ import unittest
 
 class TestSeries(unittest.TestCase):
 
-    def test_trim_multiple_chunks(self):
+    def test_trim_multiple_chunks_wo_close(self):
         from tempsdb.series import create_series, TimeSeries
         series = create_series('test7', 'test7', 10, 4096)
 
@@ -15,6 +15,21 @@ class TestSeries(unittest.TestCase):
         with series.iterate_range(0, 17000) as it:
             for ts, v in it:
                 self.assertNotEqual(ts, 0)
+        series.close()
+
+    def test_trim_multiple_chunks_with_close(self):
+        from tempsdb.series import create_series, TimeSeries
+        series = create_series('test8', 'test8', 10, 4096)
+
+        for i in range(0, 16000):
+            series.append(i, b'\x00'*10)
+        series.close()
+        series = TimeSeries('test8', 'test8')
+        series.trim(8000)
+        with series.iterate_range(0, 17000) as it:
+            for ts, v in it:
+                self.assertNotEqual(ts, 0)
+        series.close()
 
     def test_write_series_append_after_close(self):
         from tempsdb.series import create_series, TimeSeries
