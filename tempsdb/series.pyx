@@ -4,6 +4,7 @@ import typing as tp
 import shutil
 import threading
 import warnings
+import logging
 
 from .chunks.base cimport Chunk
 from .chunks.normal cimport NormalChunk
@@ -13,7 +14,9 @@ from .exceptions import DoesNotExist, Corruption, InvalidState, AlreadyExists
 from .metadata cimport read_meta_at, write_meta_at
 
 
-cdef set metadata_file_names = {'metadata.txt', 'metadata.minijson'}
+cdef:
+    set metadata_file_names = {'metadata.txt', 'metadata.minijson'}
+    object logger = logging.getLogger(__name__)
 
 
 cdef class TimeSeries:
@@ -96,6 +99,7 @@ cdef class TimeSeries:
         return 0
 
     def __init__(self, str path, str name, bint use_descriptor_based_access = False):
+        logger.info('Opening new time series at %s called %s', path, name)
         self.descriptor_based_access = use_descriptor_based_access
         self.mpm = None
         self.name = name
@@ -281,6 +285,7 @@ cdef class TimeSeries:
             self.mpm.cancel()
             self.mpm = None
         self.closed = True
+        logger.info('Closed time series at %s called %s', self.path, self.name)
         return 0
 
     cdef unsigned int get_index_of_chunk_for(self, unsigned long long timestamp):

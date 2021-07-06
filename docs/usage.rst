@@ -48,3 +48,9 @@ Appending the data is done via :meth:`~tempsdb.series.TimeSeries.append`. Since 
 allocated in entire pages, so your files will be padded to a page in size. This makes writes
 quite fast, as in 99.9% cases it is just a memory operation.
 
+Logging
+-------
+
+tempsdb will log when opening and closing series. To prevent this from happening, just call:
+
+.. autofunction:: tempsdb.database.disable_logging

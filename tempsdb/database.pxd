@@ -38,4 +38,4 @@ cdef class Database:
     cpdef int sync(self) except -1
 
 cpdef Database create_database(str path)
-
+cpdef int disable_logging() except -1

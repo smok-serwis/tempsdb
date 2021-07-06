@@ -31,6 +31,7 @@ though binary wheels for:
 * Linux [manylinux2014]:
     * x86_64:
         * Python 3.8
+        * Python 3.9
     * armv7l:
         * Python 3.8
 
@@ -47,11 +48,14 @@ python setup.py bdist_wheel
 
 Then copy your resulting wheel and install it via pip on the target system.
 
+Be aware that tempsdb does logging. If necessary, setting log level of 
+logger `tempsdb` to WARN will eliminate all warnings that tempsdb outputs.
+
 # Changelog
 
 ## v0.6.3
 
-* _TBA_
+* added logging for opening and closing series
 
 ## v0.6.2
 

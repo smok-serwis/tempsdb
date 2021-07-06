@@ -1,4 +1,5 @@
 import os
+import logging
 import shutil
 import typing as tp
 import struct
@@ -7,8 +8,9 @@ import warnings
 from .chunks.base cimport Chunk
 from .exceptions import Corruption, AlreadyExists, StillOpen
 from .iterators cimport Iterator
-from tempsdb.series cimport TimeSeries, create_series
+from .series cimport TimeSeries, create_series
 
+cdef object logger = logging.getLogger(__name__)
 
 cdef class VarlenEntry:
     """
@@ -495,6 +497,7 @@ cdef class VarlenSeries:
             it.close()
 
     def __init__(self, str path, str name, bint use_descriptor_based_access = False):
+        logger.info('Opening varlen series at %s called %s', path, name)
         self.closed = False
         self.mmap_enabled = not use_descriptor_based_access
         self.path = path
@@ -690,6 +693,7 @@ cdef class VarlenSeries:
         cdef TimeSeries series
         for series in self.series:
             series.close()
+        logger.info('Closed varlen series at %s called %s', self.path, self.name)
         return 0
 
     cpdef int trim(self, unsigned long long timestamp) except -1:

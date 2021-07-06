@@ -1,4 +1,5 @@
 import os
+import logging
 import shutil
 import threading
 import warnings
@@ -9,6 +10,13 @@ from tempsdb.exceptions import DoesNotExist, AlreadyExists, StillOpen
 from .series cimport TimeSeries, create_series
 from .varlen cimport VarlenSeries
 from .metadata cimport read_meta_at, write_meta_at
+
+
+cpdef int disable_logging() except -1:
+    """Disable logging of tempsdb"""
+    logging.getLogger('tempsdb').setLevel(logging.WARN)
+    return 0
+
 
 cdef class Database:
     """
