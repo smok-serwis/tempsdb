@@ -5,12 +5,18 @@ import unittest
 class TestSeries(unittest.TestCase):
 
     def test_trim_multiple_chunks_wo_close(self):
+        """
+        Test trimming after writing without closing the series.
+
+        Also tests out close_chunks and open_chunks_mmap_size
+        """
         from tempsdb.series import create_series, TimeSeries
         series = create_series('test7', 'test7', 10, 4096)
 
         for i in range(0, 16000):
             series.append(i, b'\x00'*10)
-
+        self.assertGreaterEqual(series.open_chunks_mmap_size(), 4096)
+        series.close_chunks()
         series.trim(8000)
         with series.iterate_range(0, 17000) as it:
             for ts, v in it:
@@ -25,7 +31,7 @@ class TestSeries(unittest.TestCase):
             series.append(i, b'\x00'*10)
         series.close()
         series = TimeSeries('test8', 'test8')
-        series.trim(8000)
+        series.trim(3000)
         with series.iterate_range(0, 17000) as it:
             for ts, v in it:
                 self.assertNotEqual(ts, 0)
