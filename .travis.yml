@@ -38,9 +38,11 @@ jobs:
     - stage: deploy
       python: "3.8"
       before_script:
+        - sudo apt-get update
+        - sudo apt-get install -y patchelf
         - pip install wheel twine doctor-wheel auditwheel snakehouse satella
       script:
-        - python setup.py bdist_wheel sdist
+        - RELEASE=1 python setup.py bdist_wheel sdist
         - cd dist
         - doctor-wheel *.whl
         - auditwheel repair --plat manylinux2014_x86_64 *.whl
@@ -48,9 +50,11 @@ jobs:
     - stage: deploy
       python: "3.9"
       before_script:
+        - sudo apt-get update
+        - sudo apt-get install -y patchelf
         - pip install wheel twine doctor-wheel auditwheel snakehouse satella
       script:
-        - python setup.py bdist_wheel
+        - RELEASE=1 python setup.py bdist_wheel
         - cd dist
         - doctor-wheel *.whl
         - auditwheel repair --plat manylinux2014_x86_64 *.whl
