@@ -6,11 +6,12 @@ cdef class Database:
         readonly str path
         bint closed
         object lock
-        object mpm
+        object mpm, mpm_handler
         dict open_series
         dict open_varlen_series
         readonly dict metadata
 
+    cpdef int checkpoint(self) except -1
     cpdef int reload_metadata(self) except -1
     cpdef int set_metadata(self, dict meta) except -1
     cpdef int close(self) except -1

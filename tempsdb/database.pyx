@@ -38,6 +38,7 @@ cdef class Database:
         self.open_varlen_series = {}
         self.lock = threading.RLock()
         self.mpm = None
+        self.mpm_handler = None
         self.metadata = {}
         self.reload_metadata()
 
@@ -88,6 +89,24 @@ cdef class Database:
                     else:
                         output.append(v_series)
         return output
+
+    cpdef int checkpoint(self) except -1:
+        """
+        Destroy closed series
+        """
+        cdef:
+            TimeSeries series
+            VarlenSeries v_series
+        with self.lock:
+            with DictDeleter(self.open_series) as dd:
+                for series in dd.values():
+                    if series.closed:
+                        dd.delete()
+            with DictDeleter(self.open_varlen_series) as dd:
+                for v_series in dd.values():
+                    if v_series.closed:
+                        dd.delete()
+        return 0
 
     cpdef int delete_series(self, str name) except -1:
         """
@@ -353,6 +372,7 @@ cdef class Database:
         cdef TimeSeries series
         for series in self.open_series.values():
             series.register_memory_pressure_manager(mpm)    # no-op if already closed
+        self.mpm_handler = mpm.register_on_entered_severity(1)(self.checkpoint)
         return 0
 
     def __del__(self):
@@ -378,6 +398,9 @@ cdef class Database:
                 var_series.close(True)
             self.open_varlen_series = {}
         self.closed = True
+        if self.mpm_handler is not None:
+            self.mpm_handler.cancel()
+            self.mpm_handler = None
         return 0
 
 
