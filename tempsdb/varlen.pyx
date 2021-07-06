@@ -208,15 +208,13 @@ cdef class VarlenEntry:
             if chunk_len > length - write_pointer:
                 chunk_len = length - write_pointer
 
-            temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], 0, chunk_len)
+            temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], offset, offset+chunk_len)
             b[write_pointer:write_pointer+chunk_len] = temp_data
             write_pointer += chunk_len
             segment += 1
             start_reading_at = 0
             offset = 0
-        logger.error('wp=%s b=%s len=%s len(chunks)=%s seg=%s',
-                     write_pointer, repr(b), length, len(self.chunks), segment)
-        raise ValueError('invalid indices')
+        return bytes(b)
 
     cpdef bytes to_bytes(self):
         """
