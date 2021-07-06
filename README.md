@@ -53,6 +53,10 @@ logger `tempsdb` to WARN will eliminate all warnings that tempsdb outputs.
 
 # Changelog
 
+## v0.6.4
+
+* _TBA_
+
 ## v0.6.3
 
 * added logging for opening and closing series
