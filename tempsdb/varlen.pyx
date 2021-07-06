@@ -91,8 +91,14 @@ cdef class VarlenEntry:
     def __gt__(self, other) -> bool:
         return self.to_bytes() > other
 
-    def __le__(self, other) -> bool:
+    def __ge__(self, other) -> bool:
+        return self.to_bytes() >= other
+
+    def __lt__(self, other) -> bool:
         return self.to_bytes() < other
+
+    def __le__(self, other) -> bool:
+        return self.to_bytes() <= other
 
     def __eq__(self, other) -> bool:
         return self.to_bytes() == other

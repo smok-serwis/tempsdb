@@ -34,6 +34,11 @@ class TestVarlen(unittest.TestCase):
         with varlen.iterate_range(0, 20) as iterator:
             ve = iterator.get_next()
             while ve is not None:
+                self.assertGreater(ve, b'tes')
+                self.assertLess(ve, b'tez')
+                self.assertGreaterEqual(ve, b'tes')
+                self.assertLessEqual(ve, b'tez')
+                hash(ve)
                 self.assertTrue(ve.slice(0, 4), b'test')
                 self.assertTrue(ve.startswith(b'test '))
                 # self.assertTrue(ve.endswith(b'skarabeusza'))
