@@ -29,6 +29,8 @@ class TestVarlen(unittest.TestCase):
         varlen.append(*series[0])
         varlen.append(*series[1])
 
+        self.assertEqual(varlen.last_entry_ts, 10)
+
         with varlen.iterate_range(0, 20) as iterator:
             ve = iterator.get_next()
             while ve is not None:

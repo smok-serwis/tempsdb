@@ -85,6 +85,7 @@ cdef class VarlenEntry:
                 return False
 
         cdef bytes b = self.slice(self.len-len_v, self.len)
+        logger.warning('comparing %s against %s', repr(b), repr(v))
         return b == v
 
     def __gt__(self, other) -> bool:
@@ -196,19 +197,24 @@ cdef class VarlenEntry:
             bytes temp_data
             int offset = self.parent.size_field
 
-        while write_pointer < length and len(self.chunks) > segment:
+        while write_pointer < length:
             if chunk_len-start_reading_at >= + (length - write_pointer):
                 # We have all the data that we require
-                temp_data = chunk.get_slice_of_piece_at(self.item_no[segment],
-                                                        offset, offset+length-write_pointer)
+                try:
+                    temp_data = chunk.get_slice_of_piece_at(self.item_no[segment],
+                                                            offset, offset+length-write_pointer)
+                except IndexError:
+                    raise ValueError('Invalid indices')
                 assert len(temp_data) == length-write_pointer, 'invalid length'
                 b[write_pointer:length] = temp_data
                 return bytes(b)
 
             if chunk_len > length - write_pointer:
                 chunk_len = length - write_pointer
-
-            temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], offset, offset+chunk_len)
+            try:
+                temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], offset, offset+chunk_len)
+            except IndexError:
+                raise ValueError('Invalid indices')
             b[write_pointer:write_pointer+chunk_len] = temp_data
             write_pointer += chunk_len
             segment += 1
