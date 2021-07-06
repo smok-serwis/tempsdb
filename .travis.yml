@@ -1,6 +1,9 @@
 language: python
 stages:
   - name: test
+  - name: deploy
+    if: tag is present
+
 cache: pip
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
@@ -32,6 +35,26 @@ jobs:
       after_script:
         - coverage xml
         - ./cc-test-reporter after-build -t coverage.py --exit-code $TRAVIS_TEST_RESULT
+    - stage: deploy
+      python: "3.8"
+      before_script:
+        - pip install wheel twine doctor-wheel auditwheel snakehouse satella
+      script:
+        - python setup.py bdist_wheel sdist
+        - cd dist
+        - doctor-wheel *.whl
+        - auditwheel repair --plat manylinux2014_x86_64 *.whl
+        - twine upload -u $PYPI_USER -p $PYPI_PWD wheelhouse/*.whl *.gz
+    - stage: deploy
+      python: "3.9"
+      before_script:
+        - pip install wheel twine doctor-wheel auditwheel snakehouse satella
+      script:
+        - python setup.py bdist_wheel
+        - cd dist
+        - doctor-wheel *.whl
+        - auditwheel repair --plat manylinux2014_x86_64 *.whl
+        - twine upload -u $PYPI_USER -p $PYPI_PWD wheelhouse/*.whl
 
 
 

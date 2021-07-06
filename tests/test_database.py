@@ -9,6 +9,9 @@ class TestDatabase(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.db = create_database('my_db')
 
+    def test_checkpoint(self):
+        self.db.checkpoint()
+
     def test_metadata(self):
         meta = self.db.metadata
         self.assertFalse(self.db.metadata)
