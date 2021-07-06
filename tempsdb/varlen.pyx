@@ -214,7 +214,8 @@ cdef class VarlenEntry:
             segment += 1
             start_reading_at = 0
             offset = 0
-
+        logger.error('wp=%s temp_data=%s len=%s len(chunks)=%s seg=%s',
+                     write_pointer, repr(temp_data), length, len(self.chunks), segment)
         raise ValueError('invalid indices')
 
     cpdef bytes to_bytes(self):

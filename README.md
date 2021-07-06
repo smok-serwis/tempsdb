@@ -48,8 +48,8 @@ python setup.py bdist_wheel
 
 Then copy your resulting wheel and install it via pip on the target system.
 
-Be aware that tempsdb does logging. If necessary, setting log level of 
-logger `tempsdb` to WARN will eliminate all warnings that tempsdb outputs.
+Be aware that tempsdb does logging. 
+Consult the docs for how to disable it.
 
 # Changelog
 
