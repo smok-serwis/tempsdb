@@ -568,6 +568,16 @@ cdef class VarlenSeries:
 
         self.current_maximum_length = tot_length
 
+    cpdef int sync(self) except -1:
+        """
+        Make sure that all data written up to this point is persisted on disk.
+        """
+        self.root_series.sync()
+        cdef TimeSeries series
+        for series in self.series:
+            series.sync()
+        return 0
+
     cpdef int enable_mmap(self) except -1:
         """
         Enable using mmap for these series

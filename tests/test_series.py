@@ -30,6 +30,7 @@ class TestSeries(unittest.TestCase):
 
         for i in range(0, 16000):
             series.append(i, b'\x00'*10)
+        series.sync()
         series.close()
         series = TimeSeries('test8', 'test8')
         series.trim(4000)

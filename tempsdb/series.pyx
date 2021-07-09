@@ -267,6 +267,13 @@ cdef class TimeSeries:
                 pass
         return 0
 
+    cpdef int sync(self) except -1:
+        """
+        Make sure that all data written up to this point is persisted on disk.
+        """
+        self.last_chunk.sync()
+        return 0
+
     cpdef int close(self) except -1:
         """
         Close the series.

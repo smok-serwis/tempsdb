@@ -14,7 +14,7 @@ class TestVarlen(unittest.TestCase):
 
         varlen.append(*series[1])
         self.assertEqual(len(os.listdir('test_dir')), 3)
-
+        varlen.sync()
         it = varlen.iterate_range(0, 20)
         lst = [(ts, v.to_bytes()) for ts, v in it]
         it.close()

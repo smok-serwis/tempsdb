@@ -32,6 +32,7 @@ cdef class TimeSeries:
     cdef void decref_chunk(self, unsigned long long name)
     cdef Chunk open_chunk(self, unsigned long long name, bint is_direct, bint is_gzip)
     cdef int sync_metadata(self) except -1
+    cpdef int sync(self) except -1
     cpdef int mark_synced_up_to(self, unsigned long long timestamp) except -1
     cpdef int append(self, unsigned long long timestamp, bytes data) except -1
     cpdef int append_padded(self, unsigned long long timestamp, bytes data) except -1
