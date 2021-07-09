@@ -20,7 +20,7 @@ cdef class Chunk:
         readonly unsigned long page_size
         object file, mmap, file_lock_object
         bint closed
-    cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry)
+    cpdef object iterate_indices(self, unsigned int starting_entry, unsigned int stopping_entry)
     cpdef int close(self, bint force=*) except -1
     cdef tuple get_piece_at(self, unsigned int index)
     cdef int sync(self) except -1

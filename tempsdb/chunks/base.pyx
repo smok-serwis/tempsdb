@@ -227,9 +227,8 @@ cdef class Chunk:
         """
         if index > self.entries:
             raise ValueError('index too large')
-        cdef:
-            unsigned long offset = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE) + byte_index
-        return self.mmap[offset]
+        cdef unsigned long ofs = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE) + byte_index
+        return ord(self.mmap[ofs])
 
     cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start):
         """
@@ -361,7 +360,7 @@ cdef class Chunk:
         """
         raise NotImplementedError('Abstract method!')
 
-    cpdef object iterate_indices(self, unsigned long starting_entry, unsigned long stopping_entry):
+    cpdef object iterate_indices(self, unsigned int starting_entry, unsigned int stopping_entry):
         """
         Return a partial iterator starting at starting_entry and ending at stopping_entry (exclusive).
         
@@ -372,8 +371,8 @@ cdef class Chunk:
         """
         return self._iterate(starting_entry, stopping_entry)
 
-    def _iterate(self, starting_entry: int, stopping_entry: int):
-        cdef int i
+    def _iterate(self, unsigned int starting_entry, unsigned int stopping_entry):
+        cdef unsigned int i
         for i in range(starting_entry, stopping_entry):
             yield self.get_piece_at(i)
 

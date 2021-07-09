@@ -34,6 +34,12 @@ class TestVarlen(unittest.TestCase):
         with varlen.iterate_range(0, 20) as iterator:
             ve = iterator.get_next()
             while ve is not None:
+                self.assertTrue(ve.startswith(b'test '))
+                # self.assertTrue(ve.endswith(b'skarabeusza'))
+                self.assertEqual(ve.get_byte_at(3), ord('t'))
+                self.assertFalse(ve.startswith(b'tost'))
+                self.assertTrue(ve.slice(0, 4), b'test')
+                # self.assertFalse(ve.endswith(b'skerabeusza'))
                 self.assertGreater(ve, b'tes')
                 self.assertLess(ve, b'tez')
                 self.assertGreaterEqual(ve, b'tes')
@@ -41,11 +47,7 @@ class TestVarlen(unittest.TestCase):
                 self.assertLessEqual(ve, b'tez')
                 hash(ve)
                 self.assertNotEqual(ve, b'test')
-                self.assertTrue(ve.slice(0, 4), b'test')
-                self.assertTrue(ve.startswith(b'test '))
-                self.assertTrue(ve.endswith(b'skarabeusza'))
-                self.assertFalse(ve.startswith(b'tost'))
-                self.assertFalse(ve.endswith(b'skerabeusza'))
+
                 ve = iterator.get_next()
 
     def test_varlen_gzip(self):

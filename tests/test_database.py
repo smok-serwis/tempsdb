@@ -1,6 +1,6 @@
 import unittest
 
-from tempsdb.database import create_database
+from tempsdb.database import create_database, Database
 from tempsdb.exceptions import DoesNotExist
 
 
@@ -28,6 +28,9 @@ class TestDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(self.db.get_open_series()), 2)
         self.db.close_all_open_series()
         self.assertEqual(len(self.db.get_open_series()), 0)
+
+    def test_does_not_exist(self):
+        self.assertRaises(DoesNotExist, lambda: Database('does-not-exist'))
 
     def test_add_series(self):
         ser = self.db.create_series('hello-world', 1, 10)
