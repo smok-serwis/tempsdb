@@ -32,7 +32,7 @@ class TestSeries(unittest.TestCase):
         series = create_series('test10', 'test10', 10, 4096)
         series.close()
         write_json_to_file('test10/metadata.txt', {})
-        self.assertRaises(Corruption, TimeSeries('test10', 'test10'))
+        self.assertRaises(Corruption, lambda: TimeSeries('test10', 'test10'))
 
     def test_trim_multiple_chunks_with_close(self):
         from tempsdb.series import create_series, TimeSeries

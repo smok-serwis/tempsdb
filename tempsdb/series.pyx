@@ -159,7 +159,10 @@ cdef class TimeSeries:
                     raise Corruption('Detected invalid file "%s"' % (filename, ))
             self.chunks.sort()
 
-            last_chunk_name, is_direct, is_gzip = self.chunks[-1]
+            try:
+                last_chunk_name, is_direct, is_gzip = self.chunks[-1]
+            except IndexError as e:
+                raise Corruption('Corrupted series: %s' % (e, )) from e
             self.last_chunk = self.open_chunk(last_chunk_name, is_direct, is_gzip)
             self.last_entry_ts = self.last_chunk.max_ts
 
