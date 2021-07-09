@@ -211,6 +211,13 @@ class TestSeries(unittest.TestCase):
         series.close()
         from tempsdb.series import TimeSeries
         series = TimeSeries('test.gz', 'test.gz')
+        self.do_verify_series(series, 0, 2000)
+        self.do_verify_series(series, 500, 2000)
+        self.do_verify_series(series, 1000, 2000)
+        self.do_verify_series(series, 1500, 2000)
+        self.do_verify_series(series, 0, 500)
+        self.do_verify_series(series, 0, 1200)
+        self.do_verify_series(series, 0, 1800)
         series.close()
 
     def do_verify_series(self, series, start, stop):
