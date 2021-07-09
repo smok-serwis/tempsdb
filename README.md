@@ -53,6 +53,10 @@ Consult the docs for how to disable it.
 
 # Changelog
 
+## v0.6.5
+
+* _TBA_
+
 ## v0.6.4
 
 * fixed a bug with slicing chunks in `VarlenSeries`
