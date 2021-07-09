@@ -1,6 +1,10 @@
 import os
 import unittest
 
+from satella.json import write_json_to_file
+
+from tempsdb.exceptions import Corruption
+
 
 class TestSeries(unittest.TestCase):
 
@@ -22,6 +26,13 @@ class TestSeries(unittest.TestCase):
             for ts, v in it:
                 self.assertNotEqual(ts, 0)
         series.close()
+
+    def test_corrupted_metadata(self):
+        from tempsdb.series import create_series, TimeSeries
+        series = create_series('test10', 'test10', 10, 4096)
+        series.close()
+        write_json_to_file('test10/metadata.txt', {})
+        self.assertRaises(Corruption, TimeSeries('test10', 'test10'))
 
     def test_trim_multiple_chunks_with_close(self):
         from tempsdb.series import create_series, TimeSeries

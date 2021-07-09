@@ -129,12 +129,8 @@ cdef class TimeSeries:
             self.page_size = metadata['page_size']
             self.metadata = metadata.get('metadata')
             self.gzip_level = metadata.get('gzip_level', 0)
-        except ValueError:
-            raise Corruption('Corrupted series')
-        except (OSError, ValueError) as e:
-            raise Corruption('Corrupted series: %s' % (e, ))
-        except KeyError:
-            raise Corruption('Could not read metadata item')
+        except (OSError, ValueError, KeyError) as e:
+            raise Corruption('Corrupted series: %s' % (e, )) from e
 
         self.open_chunks = {}       # tp.Dict[int, Chunk]
         self.chunks = []            # type: tp.List[tp.Tuple[int, bool, bool]] # sorted by ASC
