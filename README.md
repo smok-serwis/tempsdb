@@ -55,7 +55,7 @@ Consult the docs for how to disable it.
 
 ## v0.6.4
 
-* fixed a bug with slicing chunks
+* fixed a bug with slicing chunks in `VarlenSeries`
 * added extra comparison operators for `VarlenEntry`
 * added `sync` to `VarlenSeries`
 

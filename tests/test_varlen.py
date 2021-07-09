@@ -43,9 +43,9 @@ class TestVarlen(unittest.TestCase):
                 self.assertNotEqual(ve, b'test')
                 self.assertTrue(ve.slice(0, 4), b'test')
                 self.assertTrue(ve.startswith(b'test '))
-                # self.assertTrue(ve.endswith(b'skarabeusza'))
+                self.assertTrue(ve.endswith(b'skarabeusza'))
                 self.assertFalse(ve.startswith(b'tost'))
-                # self.assertFalse(ve.endswith(b'skerabeusza'))
+                self.assertFalse(ve.endswith(b'skerabeusza'))
                 ve = iterator.get_next()
 
     def test_varlen_gzip(self):

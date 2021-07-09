@@ -85,7 +85,6 @@ cdef class VarlenEntry:
                 return False
 
         cdef bytes b = self.slice(self.len-len_v, self.len)
-        logger.warning('comparing %s against %s', repr(b), repr(v))
         return b == v
 
     def __gt__(self, other) -> bool:
