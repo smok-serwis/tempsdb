@@ -214,7 +214,7 @@ cdef class Chunk:
 
         self.after_init()
 
-    cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1:
+    cpdef int get_byte_of_piece(self, unsigned int index, unsigned int byte_index) except -1:
         """
         Return a particular byte of given element at given index.
         
@@ -230,7 +230,7 @@ cdef class Chunk:
         cdef unsigned long ofs = HEADER_SIZE + TIMESTAMP_SIZE + index * (self.block_size + TIMESTAMP_SIZE) + byte_index
         return ord(self.mmap[ofs])
 
-    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start):
+    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, unsigned int start):
         """
         Return a slice of data from given element starting at given index to the end
         
@@ -240,7 +240,7 @@ cdef class Chunk:
         """
         return self.get_slice_of_piece_at(index, start, self.block_size)
 
-    cpdef bytes get_slice_of_piece_at(self, unsigned int index, int start, int stop):
+    cpdef bytes get_slice_of_piece_at(self, unsigned int index, unsigned int start, unsigned int stop):
         """
         Return a slice of data from given element
         

@@ -26,9 +26,9 @@ cdef class Chunk:
     cdef int sync(self) except -1
     cpdef unsigned long long get_timestamp_at(self, unsigned int index)
     cpdef bytes get_value_at(self, unsigned int index)
-    cpdef bytes get_slice_of_piece_at(self, unsigned int index, int start, int stop)
-    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, int start)
-    cpdef int get_byte_of_piece(self, unsigned int index, int byte_index) except -1
+    cpdef bytes get_slice_of_piece_at(self, unsigned int index, unsigned int start, unsigned int stop)
+    cpdef bytes get_slice_of_piece_starting_at(self, unsigned int index, unsigned int start)
+    cpdef int get_byte_of_piece(self, unsigned int index, unsigned int byte_index) except -1
     cpdef unsigned int find_left(self, unsigned long long timestamp)
     cpdef unsigned int find_right(self, unsigned long long timestamp)
     cdef object open_file(self, str path)
@@ -49,7 +49,7 @@ cdef class Chunk:
         """
         return self.min_ts
 
-    cdef inline int length(self):
+    cdef inline unsigned int length(self):
         """
         :return: amount of entries in this chunk
         :rtype: int 

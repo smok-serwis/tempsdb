@@ -55,7 +55,7 @@ Consult the docs for how to disable it.
 
 ## v0.6.5
 
-* _TBA_
+* fixed warnings about signed to unsigned comparison
 
 ## v0.6.4
 
