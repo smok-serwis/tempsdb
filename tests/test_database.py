@@ -20,6 +20,15 @@ class TestDatabase(unittest.TestCase):
         self.db.reload_metadata()
         self.assertEqual(self.db.metadata, meta)
 
+    def test_open_series(self):
+        self.db.create_series('test4', 2, 20)
+        self.db.create_series('test5', 2, 20).close()
+        self.db.create_varlen_series('test5', [10, 20, 10], 2, 20)
+        self.db.create_varlen_series('test6', [10, 20, 10], 2, 20).close()
+        self.assertGreaterEqual(len(self.db.get_open_series()), 2)
+        self.db.close_all_open_series()
+        self.assertEqual(len(self.db.get_open_series()), 0)
+
     def test_add_series(self):
         ser = self.db.create_series('hello-world', 1, 10)
         ser.append(10, b'\x00')

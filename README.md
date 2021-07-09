@@ -59,6 +59,8 @@ Consult the docs for how to disable it.
 * added extra comparison operators for `VarlenEntry`
 * added `sync` to `VarlenSeries`
 * fixed a bug with not propagating metadata write exceptions
+* fixed a bug with `Database` treating `varlen` and metadata as real time series
+
 
 ## v0.6.3
 

@@ -80,22 +80,11 @@ cdef class Database:
         """
         cdef:
             list output = []
-            TimeSeries series
-            VarlenSeries v_series
             str name
+        self.checkpoint()
         with self.lock:
-            with DictDeleter(self.open_series) as dd:
-                for series in dd.values():
-                    if series.closed:
-                        dd.delete()
-                    else:
-                        output.append(series)
-            with DictDeleter(self.open_varlen_series) as dd:
-                for v_series in dd.values():
-                    if v_series.closed:
-                        dd.delete()
-                    else:
-                        output.append(v_series)
+            output.extend(self.open_series.values())
+            output.extend(self.open_varlen_series.values())
         return output
 
     cpdef int checkpoint(self) except -1:
@@ -258,7 +247,13 @@ cdef class Database:
         :return: a list of series names
         :rtype: tp.List[str]
         """
-        return os.listdir(self.path)
+        cdef:
+            list output = []
+            str path
+        for path in self.path:
+            if path != 'varlen' and path != 'metadata.txt' and path != 'metadata.minijson':
+                output.append(path)
+        return output
 
     cpdef list get_all_varlen_series(self):
         """
