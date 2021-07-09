@@ -8,6 +8,19 @@ from tempsdb.exceptions import Corruption
 
 class TestSeries(unittest.TestCase):
 
+    def test_empty(self):
+        """
+        Test trimming after writing without closing the series.
+
+        Also tests out close_chunks and open_chunks_mmap_size
+        """
+        from tempsdb.series import create_series
+        series = create_series('test18', 'test18', 10, 4096)
+        try:
+            self.assertRaises(ValueError, series.get_current_value)
+        finally:
+            series.close()
+
     def test_trim_multiple_chunks_wo_close(self):
         """
         Test trimming after writing without closing the series.
