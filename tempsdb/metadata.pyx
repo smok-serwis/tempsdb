@@ -39,7 +39,7 @@ cdef inline int write_meta_json(str path, dict meta):
     write_json_to_file(os.path.join(path, METADATA_FILE_NAME), meta)
     return 0
 
-cdef int write_meta_at(str path, dict meta):
+cdef int write_meta_at(str path, dict meta) except -1:
     cdef:
         bint exists_minijson = os.path.exists(os.path.join(path, METADATA_MINIJSON_FILE_NAME))
         bint exists_json = os.path.exists(os.path.join(path, METADATA_FILE_NAME))
@@ -57,4 +57,4 @@ cdef int write_meta_at(str path, dict meta):
         return write_meta_json(path, meta)
     else:
         raise EnvironmentError('both metadata files exists!')
-    return 0
+

@@ -58,6 +58,7 @@ Consult the docs for how to disable it.
 * fixed a bug with slicing chunks in `VarlenSeries`
 * added extra comparison operators for `VarlenEntry`
 * added `sync` to `VarlenSeries`
+* fixed a bug with not propagating metadata write exceptions
 
 ## v0.6.3
 

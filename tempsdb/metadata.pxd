@@ -5,4 +5,4 @@ cdef enum:
 
 
 cdef dict read_meta_at(str path)
-cdef int write_meta_at(str path, dict meta)
+cdef int write_meta_at(str path, dict meta) except -1
