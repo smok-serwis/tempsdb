@@ -456,6 +456,16 @@ cdef class VarlenSeries:
     :param path: path to directory containing the series
     :param name: name of the series
     """
+    cpdef int sync(self) except -1:
+        """
+        Make sure that all data written up to this point is persisted on disk.
+        """
+        self.root_series.sync()
+        cdef TimeSeries series
+        for series in self.series:
+            series.sync()
+        return 0
+
     cdef void register_memory_pressure_manager(self, object mpm):
         self.mpm = mpm
         cdef TimeSeries series
@@ -567,16 +577,6 @@ cdef class VarlenSeries:
                                           use_descriptor_based_access=not self.mmap_enabled))
 
         self.current_maximum_length = tot_length
-
-    cpdef int sync(self) except -1:
-        """
-        Make sure that all data written up to this point is persisted on disk.
-        """
-        self.root_series.sync()
-        cdef TimeSeries series
-        for series in self.series:
-            series.sync()
-        return 0
 
     cpdef int enable_mmap(self) except -1:
         """

@@ -18,6 +18,7 @@ cdef class VarlenSeries:
         int gzip_level
         bint mmap_enabled
 
+    cpdef int sync(self) except -1
     cpdef int enable_mmap(self) except -1
     cpdef int disable_mmap(self) except -1
     cpdef unsigned long open_chunks_mmap_size(self)
@@ -69,6 +70,7 @@ cdef class VarlenEntry:
     cpdef bint endswith(self, bytes v) except -1
     cpdef bint startswith(self, bytes v) except -1
     cpdef int close(self) except -1
+
 
 cpdef VarlenSeries create_varlen_series(str path, str name, int size_struct, list length_profile,
                                         int max_entries_per_chunk,
