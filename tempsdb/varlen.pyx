@@ -83,7 +83,6 @@ cdef class VarlenEntry:
         else:
             if len_v > self.length():
                 return False
-
         cdef bytes b = self.slice(self.len-len_v, self.len)
         return b == v
 
@@ -183,7 +182,7 @@ cdef class VarlenEntry:
             int segment = 0
             int pointer = 0
             int next_chunk_len
-            int start_reading_at
+            int start_reading_at = 0
 
         # Track down the right segment to start the read
         while pointer < start:
@@ -196,13 +195,17 @@ cdef class VarlenEntry:
 
         cdef:
             int write_pointer = 0
-            int chunk_len = self.parent.get_length_for(segment)
+            int chunk_len = self.parent.get_length_for(segment) - start_reading_at
             int len_to_read = self.parent.get_length_for(segment) - start_reading_at
             Chunk chunk = self.chunks[segment]
             bytes temp_data
-            int offset = self.parent.size_field
+            int offset = start_reading_at
+
+        if segment == 0:
+             offset += self.parent.size_field
 
         while write_pointer < length:
+
             if chunk_len-start_reading_at >= + (length - write_pointer):
                 # We have all the data that we require
                 try:
@@ -214,15 +217,19 @@ cdef class VarlenEntry:
                 b[write_pointer:length] = temp_data
                 return bytes(b)
 
-            if chunk_len > length - write_pointer:
-                chunk_len = length - write_pointer
             try:
                 temp_data = chunk.get_slice_of_piece_at(self.item_no[segment], offset, offset+chunk_len)
             except IndexError:
                 raise ValueError('Invalid indices')
+
             b[write_pointer:write_pointer+chunk_len] = temp_data
             write_pointer += chunk_len
             segment += 1
+            try:
+                chunk = self.chunks[segment]
+            except IndexError:
+                raise ValueError('Invalid indices')
+            chunk_len = self.parent.get_length_for(segment)
             start_reading_at = 0
             offset = 0
         return bytes(b)
