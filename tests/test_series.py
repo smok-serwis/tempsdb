@@ -209,6 +209,9 @@ class TestSeries(unittest.TestCase):
         self.do_verify_series(series, 0, 1200)
         self.do_verify_series(series, 0, 1800)
         series.close()
+        from tempsdb.series import TimeSeries
+        series = TimeSeries('test.gz', 'test.gz')
+        series.close()
 
     def do_verify_series(self, series, start, stop):
         it = series.iterate_range(start, stop)
