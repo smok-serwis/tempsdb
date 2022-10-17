@@ -17,7 +17,7 @@ monkey_patch_parallel_compilation()
 directives = {'language_level': '3'}
 ext_kwargs = {}
 cythonize_kwargs = {}
-if 'CI' in os.environ and 'RELEASE' not in os.environ:
+if 'CI' in os.environ: # and 'RELEASE' not in os.environ:
     ext_kwargs['define_macros'] = [("CYTHON_TRACE_NOGIL", "1")]
     directives.update(profile=True, linetrace=True, embedsignature=True)
     cythonize_kwargs['gdb_debug'] = True
