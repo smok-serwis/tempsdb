@@ -5,3 +5,4 @@ six
 nose2
 coverage
 minijson
+Cython
